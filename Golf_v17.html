@@ -1,0 +1,2730 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>友茂隊高爾夫聯賽管理系統</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- SheetJS (Excel 匯入/匯出庫) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;800&family=Inter:wght@400;600;700;800&display=swap');
+        body { font-family: 'Noto Sans TC', 'Inter', sans-serif; background-color: #f3f6f4; }
+        .tab-active { background-color: #1b4d3e !important; color: white !important; font-weight: 700; }
+        .row-1st { background-color: #fef9c3 !important; border-left: 5px solid #eab308 !important; }
+        .row-2nd { background-color: #f1f5f9 !important; border-left: 5px solid #94a3b8 !important; }
+        .row-3rd { background-color: #ffedd5 !important; border-left: 5px solid #f97316 !important; }
+        .row-lucky7 { background-color: #dcfce7 !important; border-left: 5px solid #22c55e !important; }
+        .row-bb { background-color: #ffe4e6 !important; border-left: 5px solid #f43f5e !important; }
+        .best5-chip { background-color: #d1fae5; color: #065f46; font-weight: 700; border-radius: 4px; padding: 1px 4px; }
+        .custom-points-badge { background-color: #ede9fe !important; color: #6d28d9 !important; border: 1px solid #c4b5fd !important; font-weight: 800 !important; border-radius: 4px; padding: 1px 5px; box-shadow: 0 1px 2px rgba(109,40,217,0.1); }
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-[#1b4d3e] text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8 flex flex-wrap justify-between items-center gap-3">
+            <div class="flex items-center space-x-3 cursor-pointer select-none" onclick="handleSecretClick()" title="連續點擊3次可開啟總幹事後台">
+                <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center border-2 border-emerald-300 text-[#1b4d3e] text-2xl font-black shadow-md">
+                    🏌️
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-black tracking-wide flex items-center gap-2">
+                        友茂隊 <span class="text-xs px-2 py-0.5 rounded bg-emerald-600/90 font-normal">聯賽管理系統</span>
+                    </h1>
+                    <p class="text-xs text-emerald-100/70">1-11月月例賽 • 12月雙日會長盃扣雙倍差點 • 全年總桿與新差點 • 抓鳥與Near Pin統計</p>
+                </div>
+            </div>
+
+            <!-- 主選單分頁切換 -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <button onclick="switchView('annual')" id="btnNavAnnual" class="px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-emerald-800 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-trophy text-amber-300"></i> 全年度積分榜
+                </button>
+                <button onclick="switchView('grossStats')" id="btnNavGrossStats" class="px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-emerald-800 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-chart-line text-cyan-300"></i> 全年度總桿統計表
+                </button>
+                <button onclick="switchView('skillsStats')" id="btnNavSkillsStats" class="px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-emerald-800 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-bullseye text-amber-300"></i> 抓鳥與Near Pin統計表
+                </button>
+                <button onclick="switchView('monthly')" id="btnNavMonthly" class="px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-white text-[#1b4d3e] shadow-sm flex items-center gap-1.5">
+                    <i class="fa-solid fa-calendar-days"></i> 月賽成績登錄
+                </button>
+                <button onclick="exportLINEReport()" class="px-3 py-2 rounded-lg text-xs sm:text-sm font-medium bg-[#06C755] hover:bg-[#05b34c] text-white flex items-center gap-1 shadow-sm" title="複製 LINE 戰報">
+                    <i class="fa-brands fa-line text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 flex-grow w-full">
+
+        <!-- ==================== 頁面 1: 全年度積分榜 ==================== -->
+        <section id="viewAnnual" class="space-y-6 hidden">
+            <!-- 頂部前 6 名 Highlight 展台 -->
+            <div class="bg-gradient-to-br from-[#1b4d3e] to-[#256854] rounded-2xl p-5 text-white shadow-xl relative overflow-hidden border border-emerald-700/50">
+                <div class="flex items-center justify-between mb-4 border-b border-emerald-600/60 pb-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-crown text-amber-300 text-xl"></i>
+                        <h2 class="text-lg sm:text-xl font-bold tracking-wide">全年度積分風雲榜 TOP 6 尊榮展台</h2>
+                    </div>
+                    <span class="text-xs bg-emerald-900/60 text-emerald-200 px-2.5 py-1 rounded-full border border-emerald-500/30">
+                        即時動態結算中
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" id="top6Container">
+                    <!-- Dynamic Top 6 cards rendered by JS -->
+                </div>
+            </div>
+
+            <!-- 年度 1-12 月大矩陣表格 (淡藍色底色) -->
+            <div class="bg-[#f0f6fc] rounded-2xl shadow-sm border border-blue-200 overflow-hidden">
+                <div class="p-4 border-b border-blue-100 flex flex-wrap justify-between items-center gap-3 bg-blue-50/60">
+                    <div>
+                        <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-table-cells text-emerald-700"></i> 全員 1~12 月積分累計矩陣表
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5">規則：1~11月 出賽 2 分；淨桿 &le; 80 得 3 分；第3名 8 分、第2名 10 分、第1名 13 分。12月會長盃(扣雙倍差點)：第1名 22 分、第2名 16 分、第3名 12 分，其餘 2 分。標註 <span class="custom-points-badge text-[10px]">紫底</span> 為總幹事手動修改自訂積分。</p>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                        <button onclick="toggleSort('rank')" class="px-3 py-1.5 bg-white border border-slate-300 hover:border-emerald-600 rounded-md font-medium text-slate-700 transition flex items-center gap-1 shadow-2xs">
+                            <i class="fa-solid fa-arrow-down-wide-short text-emerald-700"></i> 依積分排名排序
+                        </button>
+                        <button onclick="toggleSort('fixed')" class="px-3 py-1.5 bg-white border border-slate-300 hover:border-emerald-600 rounded-md font-medium text-slate-700 transition flex items-center gap-1 shadow-2xs">
+                            <i class="fa-solid fa-arrow-down-1-9 text-slate-500"></i> 依固定序號排序
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs sm:text-sm text-left border-collapse min-w-[950px]">
+                        <thead>
+                            <tr class="bg-slate-100/90 text-slate-700 border-b border-slate-200 text-center font-bold">
+                                <th class="p-2.5 w-12 sticky left-0 bg-slate-100 z-10">序號</th>
+                                <th class="p-2.5 text-left w-36 sticky left-12 bg-slate-100 z-10 shadow-r">隊員姓名</th>
+                                <th class="p-2 bg-slate-50 text-slate-600 font-semibold">1月</th>
+                                <th class="p-2 bg-slate-50 text-slate-600 font-semibold">2月</th>
+                                <th class="p-2 bg-slate-50 text-slate-600 font-semibold">3月</th>
+                                <th class="p-2 bg-slate-50 text-slate-600 font-semibold">4月</th>
+                                <th class="p-2 bg-slate-50 text-slate-600 font-semibold">5月</th>
+                                <th class="p-2 bg-slate-50 text-slate-600 font-semibold">6月</th>
+                                <th class="p-2 bg-slate-50 text-slate-600 font-semibold">7月</th>
+                                <th class="p-2 bg-slate-50 text-slate-600 font-semibold">8月</th>
+                                <th class="p-2 bg-slate-50 text-slate-600 font-semibold">9月</th>
+                                <th class="p-2 bg-slate-50 text-slate-600 font-semibold">10月</th>
+                                <th class="p-2 bg-slate-50 text-slate-600 font-semibold">11月</th>
+                                <th class="p-2 bg-amber-100 text-amber-950 font-bold">12月盃</th>
+                                <th class="p-2.5 bg-emerald-50 text-emerald-900 font-bold w-24">年度累計積分</th>
+                                <th class="p-2.5 bg-emerald-100/80 text-emerald-950 font-black w-20">目前排名</th>
+                                <th class="p-2.5 bg-slate-50 text-slate-800 font-bold w-24">最新個人差點</th>
+                            </tr>
+                        </thead>
+                        <tbody id="annualTableBody" class="divide-y divide-slate-100 text-center">
+                            <!-- Injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 頁面 2: 全年度總桿統計表 ==================== -->
+        <section id="viewGrossStats" class="space-y-6 hidden">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg font-bold">
+                        <i class="fa-solid fa-flag"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500">全年總賽事場次</div>
+                        <div class="text-lg font-black text-slate-800">13 場 <span class="text-xs font-normal text-slate-400">(1-11月+12月雙場)</span></div>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center text-lg font-bold">
+                        <i class="fa-solid fa-calculator"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500">&ge;5 次出賽計算法</div>
+                        <div class="text-sm font-bold text-blue-900">最優5場平均 &minus; 72 &times; 0.8</div>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center text-lg font-bold">
+                        <i class="fa-solid fa-person-walking"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500">&lt;5 次或新進人員</div>
+                        <div class="text-sm font-bold text-orange-900">總平均 &minus; 72 &times; 0.7</div>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center text-lg font-bold">
+                        <i class="fa-solid fa-cake-candles"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500">年齡逾 70 歲(含)長春</div>
+                        <div class="text-sm font-bold text-purple-900">總平均 &minus; 72 &times; 0.85</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 主表格：1-11月 + 12月第1場與第2場總桿矩陣 (淡橘色底色) -->
+            <div class="bg-[#fff9f2] rounded-2xl shadow-sm border border-amber-200 overflow-hidden">
+                <div class="p-4 border-b border-amber-100 flex flex-wrap justify-between items-center gap-3 bg-amber-50/60">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                            <i class="fa-solid fa-clipboard-list text-emerald-700"></i> 全年度總桿統計暨明年度新差點預估表
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            12月第一場與第二場成績連動自「12月會長盃第一天與第二天成績」。標綠底為年度最佳 5 場總桿，差點上限 36，無條件捨去。
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                        <button onclick="sortGrossStats('avg')" class="px-3 py-1.5 bg-white border border-slate-300 hover:border-emerald-600 rounded-md font-medium text-slate-700 transition flex items-center gap-1 shadow-2xs">
+                            <i class="fa-solid fa-arrow-up-1-9 text-emerald-700"></i> 依平均桿數低到高
+                        </button>
+                        <button onclick="sortGrossStats('hdcp')" class="px-3 py-1.5 bg-white border border-slate-300 hover:border-emerald-600 rounded-md font-medium text-slate-700 transition flex items-center gap-1 shadow-2xs">
+                            <i class="fa-solid fa-medal text-amber-600"></i> 依明年新差點排序
+                        </button>
+                        <button onclick="sortGrossStats('id')" class="px-3 py-1.5 bg-white border border-slate-300 hover:border-emerald-600 rounded-md font-medium text-slate-700 transition flex items-center gap-1 shadow-2xs">
+                            <i class="fa-solid fa-list-ol text-slate-500"></i> 依固定序號
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left border-collapse min-w-[1250px]">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 font-bold text-center border-b border-slate-200">
+                                <th rowspan="2" class="p-2 w-12 sticky left-0 bg-slate-100 z-10 border-r border-slate-200">序號</th>
+                                <th rowspan="2" class="p-2 text-left w-36 sticky left-12 bg-slate-100 z-10 shadow-r border-r border-slate-200">隊員姓名</th>
+                                <th rowspan="2" class="p-2 w-20 text-slate-600 border-r border-slate-200">會員資格</th>
+                                <th colspan="11" class="p-1.5 bg-slate-50 border-r border-slate-200 text-slate-700">1 ~ 11 月份 常規月例賽</th>
+                                <th colspan="2" class="p-1.5 bg-amber-50 border-r border-slate-200 text-amber-950 font-bold">12月份 會長盃 (雙日賽)</th>
+                                <th rowspan="2" class="p-2 w-16 bg-blue-50/70 text-blue-950 font-bold border-r border-slate-200">計分次數</th>
+                                <th rowspan="2" class="p-2 w-18 bg-emerald-50 text-emerald-950 font-bold border-r border-slate-200">平均桿數</th>
+                                <th rowspan="2" class="p-2 w-24 bg-amber-100 text-amber-950 font-black">明年度新差點</th>
+                            </tr>
+                            <tr class="bg-slate-50 text-slate-600 text-center border-b border-slate-200 text-[11px]" id="grossHeaderRow">
+                                <!-- Dynamic round columns with course names generated by JS -->
+                            </tr>
+                        </thead>
+                        <tbody id="grossStatsTableBody" class="divide-y divide-slate-100 text-center">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 頁面 3: 全年度技術獎統計表 ==================== -->
+        <section id="viewSkillsStats" class="space-y-6 hidden">
+            <!-- 抓鳥王 (老鷹) 與近洞王榮譽展台 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-2xl p-4 shadow-md flex items-center justify-between">
+                    <div>
+                        <div class="text-xs uppercase tracking-wider font-semibold text-amber-100 flex items-center gap-1.5">
+                            <span class="text-xl">🦅</span> 全年度榮譽 • 抓鳥王 (Birdie King)
+                        </div>
+                        <div class="text-2xl font-black mt-1" id="topBirdieLeader">-</div>
+                        <div class="text-xs text-amber-100/90 mt-0.5" id="topBirdieScore">累計抓鳥 0 隻</div>
+                    </div>
+                    <div class="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold shadow-inner">
+                        🦅
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-cyan-600 to-teal-600 text-white rounded-2xl p-4 shadow-md flex items-center justify-between">
+                    <div>
+                        <div class="text-xs uppercase tracking-wider font-semibold text-teal-100 flex items-center gap-1.5">
+                            <i class="fa-solid fa-bullseye text-lg"></i> 全年度榮譽 • 近洞王 (Near Pin King)
+                        </div>
+                        <div class="text-2xl font-black mt-1" id="topNearPinLeader">-</div>
+                        <div class="text-xs text-teal-100/90 mt-0.5" id="topNearPinScore">累計近洞 0 次</div>
+                    </div>
+                    <div class="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold shadow-inner">
+                        🎯
+                    </div>
+                </div>
+            </div>
+
+            <!-- 抓鳥與Near Pin 矩陣大表 -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-3 bg-slate-50/70">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                            <i class="fa-solid fa-award text-amber-600"></i> 全年度抓鳥與 Near Pin 技術獎矩陣表
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            由左至右 1~12 月，每月份各分 2 格（鳥 = 抓鳥數量，近 = Near Pin 數量），12 月右方統計全年度兩項總數量。無資料時維持空欄。
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                        <button onclick="sortSkillsStats('birds')" class="px-3 py-1.5 bg-white border border-slate-300 hover:border-amber-600 rounded-md font-medium text-slate-700 transition flex items-center gap-1 shadow-2xs">
+                            🦅 依抓鳥總數排序
+                        </button>
+                        <button onclick="sortSkillsStats('nearPin')" class="px-3 py-1.5 bg-white border border-slate-300 hover:border-teal-600 rounded-md font-medium text-slate-700 transition flex items-center gap-1 shadow-2xs">
+                            <i class="fa-solid fa-bullseye text-teal-600"></i> 依 Near Pin 總數排序
+                        </button>
+                        <button onclick="sortSkillsStats('id')" class="px-3 py-1.5 bg-white border border-slate-300 hover:border-emerald-600 rounded-md font-medium text-slate-700 transition flex items-center gap-1 shadow-2xs">
+                            <i class="fa-solid fa-list-ol text-slate-500"></i> 依固定序號
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left border-collapse min-w-[1300px]">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 font-bold text-center border-b border-slate-200">
+                                <th rowspan="2" class="p-2 w-12 sticky left-0 bg-slate-100 z-10 border-r-2 border-slate-300">序號</th>
+                                <th rowspan="2" class="p-2 text-left w-36 sticky left-12 bg-slate-100 z-10 shadow-r border-r-2 border-slate-300">隊員姓名</th>
+                                <th colspan="2" class="p-1.5 border-r-2 border-slate-300 bg-slate-50 font-bold">1月</th>
+                                <th colspan="2" class="p-1.5 border-r-2 border-slate-300 bg-slate-50 font-bold">2月</th>
+                                <th colspan="2" class="p-1.5 border-r-2 border-slate-300 bg-slate-50 font-bold">3月</th>
+                                <th colspan="2" class="p-1.5 border-r-2 border-slate-300 bg-slate-50 font-bold">4月</th>
+                                <th colspan="2" class="p-1.5 border-r-2 border-slate-300 bg-slate-50 font-bold">5月</th>
+                                <th colspan="2" class="p-1.5 border-r-2 border-slate-300 bg-slate-50 font-bold">6月</th>
+                                <th colspan="2" class="p-1.5 border-r-2 border-slate-300 bg-slate-50 font-bold">7月</th>
+                                <th colspan="2" class="p-1.5 border-r-2 border-slate-300 bg-slate-50 font-bold">8月</th>
+                                <th colspan="2" class="p-1.5 border-r-2 border-slate-300 bg-slate-50 font-bold">9月</th>
+                                <th colspan="2" class="p-1.5 border-r-2 border-slate-300 bg-slate-50 font-bold">10月</th>
+                                <th colspan="2" class="p-1.5 border-r-2 border-slate-300 bg-slate-50 font-bold">11月</th>
+                                <th colspan="2" class="p-1.5 border-r-2 border-amber-300 bg-amber-50 text-amber-950 font-bold">12月盃</th>
+                                <th colspan="2" class="p-2 bg-emerald-100 text-emerald-950 font-black">年度總計 (Total)</th>
+                            </tr>
+                            <tr class="text-center border-b border-slate-200 text-xs">
+                                <th class="p-1 border-r border-amber-200 text-amber-900 bg-amber-100/60 font-bold">鳥</th><th class="p-1 border-r-2 border-slate-300 text-teal-900 bg-teal-100/60 font-bold">近</th><th class="p-1 border-r border-amber-200 text-amber-900 bg-amber-100/60 font-bold">鳥</th><th class="p-1 border-r-2 border-slate-300 text-teal-900 bg-teal-100/60 font-bold">近</th><th class="p-1 border-r border-amber-200 text-amber-900 bg-amber-100/60 font-bold">鳥</th><th class="p-1 border-r-2 border-slate-300 text-teal-900 bg-teal-100/60 font-bold">近</th><th class="p-1 border-r border-amber-200 text-amber-900 bg-amber-100/60 font-bold">鳥</th><th class="p-1 border-r-2 border-slate-300 text-teal-900 bg-teal-100/60 font-bold">近</th><th class="p-1 border-r border-amber-200 text-amber-900 bg-amber-100/60 font-bold">鳥</th><th class="p-1 border-r-2 border-slate-300 text-teal-900 bg-teal-100/60 font-bold">近</th><th class="p-1 border-r border-amber-200 text-amber-900 bg-amber-100/60 font-bold">鳥</th><th class="p-1 border-r-2 border-slate-300 text-teal-900 bg-teal-100/60 font-bold">近</th><th class="p-1 border-r border-amber-200 text-amber-900 bg-amber-100/60 font-bold">鳥</th><th class="p-1 border-r-2 border-slate-300 text-teal-900 bg-teal-100/60 font-bold">近</th><th class="p-1 border-r border-amber-200 text-amber-900 bg-amber-100/60 font-bold">鳥</th><th class="p-1 border-r-2 border-slate-300 text-teal-900 bg-teal-100/60 font-bold">近</th><th class="p-1 border-r border-amber-200 text-amber-900 bg-amber-100/60 font-bold">鳥</th><th class="p-1 border-r-2 border-slate-300 text-teal-900 bg-teal-100/60 font-bold">近</th><th class="p-1 border-r border-amber-200 text-amber-900 bg-amber-100/60 font-bold">鳥</th><th class="p-1 border-r-2 border-slate-300 text-teal-900 bg-teal-100/60 font-bold">近</th><th class="p-1 border-r border-amber-200 text-amber-900 bg-amber-100/60 font-bold">鳥</th><th class="p-1 border-r-2 border-slate-300 text-teal-900 bg-teal-100/60 font-bold">近</th><th class="p-1 border-r border-amber-300 text-amber-950 bg-amber-200/60 font-extrabold">鳥</th><th class="p-1 border-r-2 border-amber-400 text-teal-950 bg-teal-200/60 font-extrabold">近</th>
+                                <th class="p-1.5 border-r border-slate-200 bg-amber-200/80 text-amber-950 font-black text-xs">鳥總數</th>
+                                <th class="p-1.5 bg-teal-200/80 text-teal-950 font-black text-xs">近總數</th>
+                            </tr>
+                        </thead>
+                        <tbody id="skillsStatsTableBody" class="divide-y divide-slate-100 text-center">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 頁面 4: 月賽成績登錄 (1~12月) ==================== -->
+        <section id="viewMonthly" class="space-y-4">
+            
+            <!-- 月份切換 Tab (1~12月) -->
+            <div class="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center space-x-1.5 flex-nowrap overflow-x-auto" id="monthTabs">
+                    <!-- 12 Buttons (1月~12月) injected by JS -->
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <button onclick="openScoreEntryModal()" class="px-3.5 py-1.5 bg-[#1b4d3e] hover:bg-emerald-800 text-white rounded-lg font-bold transition flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-pen-to-square text-amber-300"></i> 快速錄入彈窗
+                    </button>
+                    <div class="hidden sm:flex items-center gap-1.5 pl-2 border-l border-slate-200 text-xs" id="btnNextMonthHdcpContainer">
+                        <button onclick="applyHdcpToNextMonth()" class="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-medium transition flex items-center gap-1 whitespace-nowrap shadow-sm">
+                            <i class="fa-solid fa-angles-right"></i> 將本月調整差點帶入下月
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200 text-xs">
+                        <button onclick="togglePointsEditMode()" id="btnTogglePointsEdit" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold transition flex items-center gap-1 whitespace-nowrap shadow-2xs border border-slate-300" title="總幹事專用：輸入管理密碼即可直接修改本月積分">
+                            <i class="fa-solid fa-lock text-slate-500" id="iconPointsLock"></i> <span id="txtPointsLock">積分鎖定中</span>
+                        </button>
+                        <button onclick="addGuestRow()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold transition flex items-center gap-1.5 whitespace-nowrap shadow-sm" title="新增隨隊同組之來賓球友成績（不列入成績排名與積分）">
+                            <i class="fa-solid fa-user-plus text-amber-200"></i> 新增來賓成績
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 月賽資訊橫幅與檢視模式切換 -->
+            <div class="bg-emerald-900 text-white p-3 rounded-xl flex flex-wrap justify-between items-center gap-2 shadow-sm">
+                <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 rounded text-xs font-bold" id="badgeRoundType">常規月例賽</span>
+                    <h3 class="text-base font-bold" id="monthlyTitle">1 月份 例賽成績登錄表</h3>
+                    <span class="text-xs text-emerald-200 flex items-center gap-1">
+                        <i class="fa-solid fa-location-dot"></i>
+                        <span id="courseSingleWrap">
+                            <input id="inputCourse" type="text" placeholder="輸入比賽球場名稱" oninput="updateCourseName('main', this.value)" onchange="onCourseChanged()"
+                                class="bg-emerald-950/60 border border-emerald-600 rounded px-2 py-0.5 text-white text-xs w-44 placeholder-emerald-400 focus:outline-none focus:ring-1 focus:ring-amber-300">
+                        </span>
+                        <span id="courseDoubleWrap" class="hidden items-center gap-1">
+                            第一天 <input id="inputCourseD1" type="text" placeholder="球場名稱" oninput="updateCourseName('d1', this.value)" onchange="onCourseChanged()"
+                                class="bg-emerald-950/60 border border-emerald-600 rounded px-2 py-0.5 text-white text-xs w-32 placeholder-emerald-400 focus:outline-none focus:ring-1 focus:ring-amber-300">
+                            第二天 <input id="inputCourseD2" type="text" placeholder="球場名稱" oninput="updateCourseName('d2', this.value)" onchange="onCourseChanged()"
+                                class="bg-emerald-950/60 border border-emerald-600 rounded px-2 py-0.5 text-white text-xs w-32 placeholder-emerald-400 focus:outline-none focus:ring-1 focus:ring-amber-300">
+                        </span>
+                    </span>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap text-xs">
+                    <div class="flex items-center bg-emerald-950/70 p-1 rounded-lg border border-emerald-700/60 font-semibold">
+                        <button onclick="toggleMonthlySort('roster')" id="btnSortRoster" class="px-2.5 py-1 rounded-md transition bg-white text-emerald-950 shadow-xs">
+                            📝 依名冊順序 (登錄成績)
+                        </button>
+                        <button onclick="toggleMonthlySort('rank')" id="btnSortRank" class="px-2.5 py-1 rounded-md transition text-emerald-200 hover:text-white">
+                            🏆 依名次排序 (頒獎查榜)
+                        </button>
+                    </div>
+                    <span class="text-emerald-200/90 text-xs" id="monthlyRuleDesc">
+                        出賽 0 人 • 淨桿低 &gt; 差點低 &gt; 年長勝
+                    </span>
+                </div>
+            </div>
+
+            <!-- 月賽特獎與說明橫幅 -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 text-xs">
+                <div class="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center gap-2 shadow-2xs">
+                    <span class="w-6 h-6 rounded-full bg-amber-400 text-white flex items-center justify-center font-bold">1</span>
+                    <div>
+                        <div class="font-bold">冠軍 (第1名)</div>
+                        <div class="text-[11px] text-amber-700" id="badgeChampion">-</div>
+                    </div>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-800 flex items-center gap-2 shadow-2xs">
+                    <span class="w-6 h-6 rounded-full bg-slate-400 text-white flex items-center justify-center font-bold">2</span>
+                    <div>
+                        <div class="font-bold">亞軍 (第2名)</div>
+                        <div class="text-[11px] text-slate-600" id="badge2nd">-</div>
+                    </div>
+                </div>
+                <div class="p-2.5 rounded-xl bg-orange-50 border border-orange-200 text-orange-900 flex items-center gap-2 shadow-2xs">
+                    <span class="w-6 h-6 rounded-full bg-orange-400 text-white flex items-center justify-center font-bold">3</span>
+                    <div>
+                        <div class="font-bold">季軍 (第3名)</div>
+                        <div class="text-[11px] text-orange-700" id="badge3rd">-</div>
+                    </div>
+                </div>
+                <div class="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center gap-2 shadow-2xs">
+                    <span class="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold"><i class="fa-solid fa-clover"></i></span>
+                    <div>
+                        <div class="font-bold">Lucky 7 (第7名)</div>
+                        <div class="text-[11px] text-emerald-700" id="badgeLucky7">-</div>
+                    </div>
+                </div>
+                <div class="col-span-2 sm:col-span-1 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 flex items-center gap-2 shadow-2xs">
+                    <span class="w-6 h-6 rounded-full bg-rose-400 text-white flex items-center justify-center font-bold">BB</span>
+                    <div>
+                        <div class="font-bold">BB 獎 (倒數第2名)</div>
+                        <div class="text-[11px] text-rose-700" id="badgeBB">-</div>
+                    </div>
+                </div>
+                <div class="col-span-2 sm:col-span-1 p-2.5 rounded-xl bg-violet-50 border border-violet-200 text-violet-900 flex items-center gap-2 shadow-2xs" id="cardDaBo">
+                    <span class="w-6 h-6 rounded-full bg-violet-500 text-white flex items-center justify-center font-bold shrink-0"><i class="fa-solid fa-water text-[11px]"></i></span>
+                    <div>
+                        <div class="font-bold">大波獎 (前後九洞差)</div>
+                        <div class="text-[11px] text-violet-700" id="badgeDaBo">-</div>
+                    </div>
+                </div>
+                <div class="col-span-2 sm:col-span-1 p-2.5 rounded-xl bg-sky-50 border border-sky-200 text-sky-900 flex items-center gap-2 shadow-2xs" id="cardXiaoBo">
+                    <span class="w-6 h-6 rounded-full bg-sky-500 text-white flex items-center justify-center font-bold shrink-0"><i class="fa-solid fa-water text-[11px]"></i></span>
+                    <div>
+                        <div class="font-bold">小波獎 (前後九洞差)</div>
+                        <div class="text-[11px] text-sky-700" id="badgeXiaoBo">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== 來賓成績登錄專區 (位於 Highlight 下方，不列入成績計算與排名) ==================== -->
+            <div id="guestSectionCard" class="bg-gradient-to-r from-amber-50/80 via-orange-50/60 to-amber-50/80 rounded-2xl p-4 border border-amber-200/90 shadow-sm space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/70 pb-2.5">
+                    <div class="flex items-center gap-2">
+                        <span class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                            <i class="fa-solid fa-user-tag"></i>
+                        </span>
+                        <div>
+                            <h4 class="text-sm font-bold text-amber-950 flex items-center gap-1.5">
+                                本月隨隊來賓成績登錄
+                                <span id="guestCountBadge" class="text-[10px] bg-amber-200 text-amber-900 font-extrabold px-2 py-0.5 rounded-full">0 位來賓</span>
+                                <span class="text-[10px] text-amber-700 font-normal">※ 獨立記錄，不列入隊員名次計算、差點調整與全年度積分</span>
+                            </h4>
+                        </div>
+                    </div>
+                    <button onclick="addGuestRow()" class="px-2.5 py-1 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition shadow-xs flex items-center gap-1">
+                        <i class="fa-solid fa-plus"></i> 新增一筆來賓
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left border-collapse min-w-[700px]">
+                        <thead>
+                            <tr class="bg-amber-100/80 text-amber-950 font-bold text-center border-b border-amber-200">
+                                <th class="p-2 w-12">序號</th>
+                                <th class="p-2 text-left w-36">來賓大名</th>
+                                <th class="p-2 w-24" id="thGuestCol1">前九桿 (OUT)</th>
+                                <th class="p-2 w-24" id="thGuestCol2">後九桿 (IN)</th>
+                                <th class="p-2 w-24 bg-amber-200/60 text-amber-950 font-black">合計總桿</th>
+                                <th class="p-2 text-left">備註說明 (例如：陳經理同組友人)</th>
+                                <th class="p-2 w-16">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="guestTableBody" class="divide-y divide-amber-200/60 text-center">
+                            <!-- 由 JS 動態注入 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 月賽成績登錄主表格 (淡綠色底色與上方 Highlight 區隔) -->
+            <div class="bg-[#f2f8f5] rounded-2xl shadow-sm border border-emerald-200/90 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs sm:text-sm text-left border-collapse min-w-[900px]">
+                        <thead>
+                            <tr class="bg-slate-100/90 text-slate-700 border-b border-slate-200 font-bold text-center">
+                                <th class="p-2.5 w-14">名次</th>
+                                <th class="p-2.5 text-left w-36">隊員姓名</th>
+                                <th class="p-2.5 w-24" id="thScoreCol1">前九洞</th>
+                                <th class="p-2.5 w-24" id="thScoreCol2">後九洞</th>
+                                <th class="p-2.5 w-20 bg-slate-50">總桿</th>
+                                <th class="p-2.5 w-20" id="thHdcpCol">個人差點</th>
+                                <th class="p-2.5 w-20 bg-blue-50/70 text-blue-950 hidden" id="thCountCol">計分次數<br><span class="text-[9px] font-normal text-blue-800">(≥5 才計名次)</span></th>
+                                <th class="p-2.5 w-22 bg-emerald-50 text-emerald-900" id="thNetCol">淨桿</th>
+                                <th class="p-2.5 w-24 text-blue-700 bg-blue-50/60" id="thHdcpAdjCol">差點調整</th>
+                                <th class="p-2.5 w-16 text-amber-800">抓鳥</th>
+                                <th class="p-2.5 w-16 text-teal-800 bg-teal-50/50">Near Pin</th>
+                                <th class="p-2.5 w-20 bg-amber-50/70 text-amber-900">積分</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monthlyTableBody" class="divide-y divide-slate-100 text-center">
+                            <!-- Injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 說明備忘 -->
+            <div class="bg-emerald-50/50 border border-emerald-100 rounded-xl p-3 text-xs text-slate-600 space-y-1" id="monthlyRuleCard">
+                <div class="font-bold text-emerald-900 flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-info text-emerald-600"></i> <span id="monthlyRuleCardTitle">球隊月賽差點調整標準：</span>
+                </div>
+                <div id="monthlyRuleCardContent" class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
+                    <!-- Injected by JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 頁面 5: 隊員基本名冊 (總幹事專區) ==================== -->
+        <section id="viewMemberAdmin" class="space-y-6 hidden">
+            <!-- 幹部管理頁頂部橫幅 -->
+            <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-5 text-white shadow-xl border border-slate-700 flex flex-wrap justify-between items-center gap-4">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-user-shield"></i>
+                        </span>
+                        <h2 class="text-xl font-bold tracking-wide">球隊隊員個資與名冊管理 (總幹事專區)</h2>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">
+                        🔒 機密後台：年齡以西元年月（YYYY-MM）登錄，系統全自動動態換算實歲年齡（滿70歲自動歸入尊榮長春組），此處名單直接即時連動至所有月份賽事，原始差點亦直接帶入一月份！
+                    </p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleExcelUpload(event)">
+                    <button onclick="triggerExcelImport()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition flex items-center gap-1 shadow-sm" title="從 Excel (.xlsx/.xls) 批量匯入隊員名冊">
+                        <i class="fa-solid fa-file-excel"></i> Excel 匯入名單
+                    </button>
+                    <button onclick="downloadExcelTemplate()" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 transition flex items-center gap-1 shadow-sm" title="下載 Excel 名冊標準範本">
+                        <i class="fa-solid fa-file-arrow-down"></i> 下載名單範本
+                    </button>
+                    <button onclick="addNewMember()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1 shadow-sm">
+                        <i class="fa-solid fa-user-plus"></i> 新增隊員
+                    </button>
+                    <button onclick="lockAdmin()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white transition flex items-center gap-1 shadow-sm">
+                        <i class="fa-solid fa-lock"></i> 鎖定退出
+                    </button>
+                </div>
+            </div>
+
+            <!-- 名冊管理表格 -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-3 bg-slate-50/70">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                            <i class="fa-solid fa-address-book text-emerald-700"></i> 全隊球員資料庫維護
+                            <span id="adminMemberTotalBadge" class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">共 42 位隊員</span>
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5">支援 Excel 匯入或線上編輯。修改姓名、出生年月或原始差點後，全系統 1~12 月與所有統計表即時同步更新，一月份差點直接帶入原始差點！</p>
+                    </div>
+                    <div class="text-xs text-slate-500">
+                        基準年：2026年 • 動態換算實歲
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs text-left border-collapse min-w-[900px]">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 font-bold text-center border-b border-slate-200">
+                                <th class="p-2.5 w-12">序號</th>
+                                <th class="p-2.5 text-left w-28">中文姓名</th>
+                                <th class="p-2.5 text-left w-36">英文姓名 (English Name)</th>
+                                <th class="p-2.5 w-36 bg-blue-50/70 text-blue-900 font-bold">出生年月 (西元 YYYY-MM)</th>
+                                <th class="p-2.5 w-24 bg-emerald-50 text-emerald-950 font-black">實歲年齡</th>
+                                <th class="p-2.5 w-28">會員類別</th>
+                                <th class="p-2.5 w-24 bg-amber-50 text-amber-950 font-bold">原始差點<br><span class="text-[9px] text-amber-800 font-normal">(連動1月份)</span></th>
+                                <th class="p-2.5 w-16">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="memberAdminTableBody" class="divide-y divide-slate-100 text-center">
+                            <!-- Injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 快捷成績錄入 Modal -->
+    <div id="scoreEntryModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-full bg-emerald-100 text-[#1b4d3e] flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-golf-ball-tee"></i>
+                    </span>
+                    <h3 class="text-base font-bold text-slate-800" id="entryModalTitle">錄入隊員成績</h3>
+                </div>
+                <button onclick="closeScoreEntryModal()" class="text-slate-400 hover:text-slate-600 text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">選擇隊員：</label>
+                    <select id="modalPlayerSelect" onchange="loadPlayerModalData()" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-800">
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1" id="lblModalCol1">前九洞 (OUT)：</label>
+                        <input type="number" id="modalCol1" min="20" max="150" placeholder="桿數" oninput="calcModalGross()"
+                            class="w-full border border-slate-300 rounded-lg p-2 text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1" id="lblModalCol2">後九洞 (IN)：</label>
+                        <input type="number" id="modalCol2" min="20" max="150" placeholder="桿數" oninput="calcModalGross()"
+                            class="w-full border border-slate-300 rounded-lg p-2 text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <div>
+                        <span class="text-slate-500 block">合計總桿 (Gross)：</span>
+                        <span class="text-base font-black text-slate-800" id="modalGrossPreview">-</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 block">當月個人差點：</span>
+                        <input type="number" id="modalHdcp" min="0" max="36" class="w-16 border border-slate-300 rounded p-1 text-center font-bold">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-amber-800 mb-1">抓鳥數量 (Birdie)：</label>
+                        <input type="number" id="modalBirds" min="0" max="18" value="0"
+                            class="w-full border border-amber-300 bg-amber-50/40 rounded-lg p-2 text-center text-sm font-bold text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-teal-800 mb-1">Near Pin 數量：</label>
+                        <input type="number" id="modalNearPin" min="0" max="10" value="0"
+                            class="w-full border border-teal-300 bg-teal-50/40 rounded-lg p-2 text-center text-sm font-bold text-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    </div>
+                </div>
+
+                <div id="modalCustomPointsWrap" class="hidden bg-amber-50/60 p-2.5 rounded-xl border border-amber-200">
+                    <div class="flex items-center justify-between">
+                        <label class="font-bold text-amber-950 text-xs flex items-center gap-1">
+                            <i class="fa-solid fa-medal text-amber-600"></i> 總幹事自訂月賽積分 (Points)：
+                        </label>
+                        <button type="button" onclick="document.getElementById('modalPoints').value = ''" class="text-[10px] text-amber-700 underline hover:text-amber-900">恢復系統自動計算</button>
+                    </div>
+                    <input type="number" id="modalPoints" min="0" max="100" placeholder="留空則依系統名次規則自動計算"
+                        class="w-full mt-1.5 border border-amber-300 rounded-lg p-1.5 text-center text-sm font-black text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-2 border-t border-slate-100">
+                <button onclick="closeScoreEntryModal()" class="w-1/3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">
+                    取消
+                </button>
+                <button onclick="saveModalScore()" class="w-2/3 py-2 rounded-xl bg-[#1b4d3e] hover:bg-emerald-800 text-white text-xs font-bold transition shadow-sm">
+                    確認儲存
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 總幹事積分手動輸入授權 Modal -->
+    <div id="pointsAuthModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 text-center space-y-4">
+            <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-700 mx-auto flex items-center justify-center text-xl font-bold">
+                <i class="fa-solid fa-key"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-slate-800">月賽積分手動編輯授權</h3>
+                <p class="text-xs text-slate-500 mt-1">開啟後可直接在月例賽表格修改各隊員積分（留空則自動恢復系統計分）。請輸入管理密碼進行授權。</p>
+            </div>
+            <div>
+                <input type="password" id="pointsPwdInput" placeholder="請輸入管理密碼" onkeydown="if(event.key==='Enter') verifyPointsPassword()"
+                    class="w-full text-center px-4 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm">
+            </div>
+            <div class="flex items-center gap-2 pt-2">
+                <button onclick="closePointsAuthModal()" class="w-1/2 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">
+                    取消
+                </button>
+                <button onclick="verifyPointsPassword()" class="w-1/2 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition shadow-sm">
+                    解鎖編輯
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 總幹事後台驗證 Modal (無任何預設密碼提示) -->
+    <div id="passwordModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 text-center space-y-4">
+            <div class="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center text-xl font-bold">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-slate-800">總幹事權限身分驗證</h3>
+                <p class="text-xs text-slate-500 mt-1">此頁面為隊員個資年齡專屬管理區，請輸入管理密碼進入。</p>
+            </div>
+            <div>
+                <input type="password" id="adminPwdInput" placeholder="請輸入管理密碼"
+                    class="w-full text-center px-4 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm">
+            </div>
+            <div class="flex items-center gap-2 pt-2">
+                <button onclick="closePasswordModal()" class="w-1/2 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">
+                    取消返回
+                </button>
+                <button onclick="verifyPassword()" class="w-1/2 py-2 rounded-xl bg-[#1b4d3e] hover:bg-emerald-800 text-white text-xs font-semibold transition shadow-sm">
+                    確認登入
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8 text-xs text-slate-400">
+        <div class="max-w-7xl mx-auto px-4 flex justify-between items-center">
+            <div>
+                友茂隊高爾夫聯賽系統 &copy; 2026 • 支援離線本機儲存、西元出生自動計算年齡
+            </div>
+            <div>
+                <!-- 隱蔽入口 -->
+                <button onclick="openPasswordModal()" class="text-slate-300 hover:text-slate-600 transition flex items-center gap-1 p-1 rounded" title="總幹事後台管理">
+                    <i class="fa-solid fa-lock text-[11px]"></i>
+                    <span class="text-[10px]">管理後台</span>
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Logic Script -->
+    <script>
+        // 12 個月份設定
+        const MONTH_CONFIG = [
+            { month: 1, name: "1月", fullName: "1月份 常規月例賽", course: "大溪高爾夫球場", isMajor: false },
+            { month: 2, name: "2月", fullName: "2月份 常規月例賽", course: "立益高爾夫球場", isMajor: false },
+            { month: 3, name: "3月", fullName: "3月份 常規月例賽", course: "揚昇鄉村俱樂部", isMajor: false },
+            { month: 4, name: "4月", fullName: "4月份 常規月例賽", course: "幸福高爾夫球場", isMajor: false },
+            { month: 5, name: "5月", fullName: "5月份 常規月例賽", course: "東華高爾夫球場", isMajor: false },
+            { month: 6, name: "6月", fullName: "6月份 常規月例賽", course: "美麗華鄉村俱樂部", isMajor: false },
+            { month: 7, name: "7月", fullName: "7月份 常規月例賽", course: "長庚高爾夫球場", isMajor: false },
+            { month: 8, name: "8月", fullName: "8月份 常規月例賽", course: "老爺關西球場", isMajor: false },
+            { month: 9, name: "9月", fullName: "9月份 常規月例賽", course: "龍潭高爾夫球場", isMajor: false },
+            { month: 10, name: "10月", fullName: "10月份 常規月例賽", course: "林口高爾夫球場", isMajor: false },
+            { month: 11, name: "11月", fullName: "11月份 常規月例賽", course: "台豐高爾夫球場", isMajor: false },
+            { 
+                month: 12, 
+                name: "12月", 
+                fullName: "12月份 年終會長盃 (雙日賽)", 
+                course: "第一天: 再興球場 / 第二天: 全國球場", 
+                courseDay1: "再興高爾夫俱樂部",
+                courseDay2: "全國花園鄉村俱樂部",
+                isMajor: true 
+            }
+        ];
+
+        // 42 位球員預設名冊 (完全移除任何預設虛擬成績，僅保留基礎名單)
+        const initialMembers = [
+            { id: 1, name: "陳建宏", engName: "David Chen", birth: "1974-05", initialHdcp: 12, memberType: "regular" },
+            { id: 2, name: "林志明", engName: "Jimmy Lin", birth: "1978-08", initialHdcp: 16, memberType: "regular" },
+            { id: 3, name: "黃國華", engName: "James Huang", birth: "1965-03", initialHdcp: 8, memberType: "regular" },
+            { id: 4, name: "張世勳", engName: "Sean Chang", birth: "1981-11", initialHdcp: 22, memberType: "regular" },
+            { id: 5, name: "李文忠", engName: "Michael Lee", birth: "1968-07", initialHdcp: 14, memberType: "regular" },
+            { id: 6, name: "王慶榮", engName: "Robert Wang", birth: "1960-04", initialHdcp: 18, memberType: "regular" },
+            { id: 7, name: "吳俊傑", engName: "Jerry Wu", birth: "1985-09", initialHdcp: 26, memberType: "regular" },
+            { id: 8, name: "蔡明哲", engName: "Jason Tsai", birth: "1971-01", initialHdcp: 10, memberType: "regular" },
+            { id: 9, name: "楊正雄", engName: "Tony Yang", birth: "1963-12", initialHdcp: 15, memberType: "regular" },
+            { id: 10, name: "許博凱", engName: "Kevin Hsu", birth: "1987-06", initialHdcp: 24, memberType: "regular" },
+            { id: 11, name: "鄭家宏", engName: "Eric Cheng", birth: "1979-03", initialHdcp: 19, memberType: "regular" },
+            { id: 12, name: "謝宗翰", engName: "Hank Hsieh", birth: "1982-10", initialHdcp: 13, memberType: "regular" },
+            { id: 13, name: "郭天佑", engName: "Alex Kuo", birth: "1967-02", initialHdcp: 17, memberType: "regular" },
+            { id: 14, name: "曾偉誠", engName: "Steven Tseng", birth: "1976-08", initialHdcp: 21, memberType: "regular" },
+            { id: 15, name: "廖家豪", engName: "Howard Liao", birth: "1990-05", initialHdcp: 28, memberType: "regular" },
+            { id: 16, name: "蘇文生", engName: "Frank Su", birth: "1955-02", initialHdcp: 18, memberType: "senior" },
+            { id: 17, name: "潘冠廷", engName: "Kenny Pan", birth: "1984-07", initialHdcp: 25, memberType: "regular" },
+            { id: 18, name: "周秉宏", engName: "Peter Chou", birth: "1973-11", initialHdcp: 9, memberType: "regular" },
+            { id: 19, name: "劉德明", engName: "Danny Liu", birth: "1962-09", initialHdcp: 20, memberType: "regular" },
+            { id: 20, name: "柯志偉", engName: "Calvin Ko", birth: "1977-04", initialHdcp: 15, memberType: "regular" },
+            { id: 21, name: "何啟東", engName: "Edward Ho", birth: "1969-06", initialHdcp: 18, memberType: "regular" },
+            { id: 22, name: "鍾振華", engName: "Bruce Chung", birth: "1964-01", initialHdcp: 14, memberType: "regular" },
+            { id: 23, name: "彭建凱", engName: "Brian Peng", birth: "1980-05", initialHdcp: 23, memberType: "regular" },
+            { id: 24, name: "葉俊男", engName: "Ryan Yeh", birth: "1975-09", initialHdcp: 16, memberType: "regular" },
+            { id: 25, name: "莊立偉", engName: "Wayne Chuang", birth: "1983-02", initialHdcp: 27, memberType: "regular" },
+            { id: 26, name: "宋元彬", engName: "Sam Sung", birth: "1961-07", initialHdcp: 12, memberType: "regular" },
+            { id: 27, name: "唐政儒", engName: "Rick Tang", birth: "1988-12", initialHdcp: 30, memberType: "new" },
+            { id: 28, name: "馮文耀", engName: "Victor Feng", birth: "1972-04", initialHdcp: 17, memberType: "regular" },
+            { id: 29, name: "范家寧", engName: "Simon Fan", birth: "1986-09", initialHdcp: 22, memberType: "regular" },
+            { id: 30, name: "鄧志平", engName: "Daniel Teng", birth: "1954-08", initialHdcp: 21, memberType: "senior" },
+            { id: 31, name: "游文華", engName: "Walter Yu", birth: "1970-03", initialHdcp: 19, memberType: "regular" },
+            { id: 32, name: "石承宗", engName: "Jerry Shih", birth: "1978-01", initialHdcp: 24, memberType: "regular" },
+            { id: 33, name: "沈宏明", engName: "Mark Shen", birth: "1966-10", initialHdcp: 10, memberType: "regular" },
+            { id: 34, name: "盧冠宇", engName: "Lucas Lu", birth: "1989-04", initialHdcp: 29, memberType: "new" },
+            { id: 35, name: "顏志剛", engName: "Jeff Yen", birth: "1973-05", initialHdcp: 13, memberType: "regular" },
+            { id: 36, name: "康清河", engName: "Richard Kang", birth: "1951-09", initialHdcp: 24, memberType: "senior" },
+            { id: 37, name: "翁俊祥", engName: "Sean Weng", birth: "1981-06", initialHdcp: 21, memberType: "regular" },
+            { id: 38, name: "邱泰山", engName: "George Chiu", birth: "1964-11", initialHdcp: 14, memberType: "regular" },
+            { id: 39, name: "魏德聖", engName: "David Wei", birth: "1975-02", initialHdcp: 26, memberType: "regular" },
+            { id: 40, name: "孫銘遠", engName: "Andy Sun", birth: "1977-07", initialHdcp: 16, memberType: "regular" },
+            { id: 41, name: "曹永豐", engName: "Joseph Tsao", birth: "1968-10", initialHdcp: 20, memberType: "regular" },
+            { id: 42, name: "薛博仁", engName: "Ben Hsueh", birth: "1982-03", initialHdcp: 25, memberType: "regular" }
+        ];
+
+        let members = [];
+        let currentMonth = 1;
+        let isPointsEditUnlocked = false;
+        let annualSortBy = 'fixed'; // 預設依序號，方便核對
+        let grossSortBy = 'id';
+        let skillsSortBy = 'id';
+        let monthlyData = {};
+        const CURRENT_YEAR = 2026;
+        const ADMIN_PWD = "8888";
+
+        function calculateAgeFromBirth(birthStr) {
+            if (!birthStr) return 50;
+            let s = String(birthStr).trim().replace(/\//g, '-');
+            const parts = s.split('-');
+            if (parts.length >= 1) {
+                const bYear = parseInt(parts[0]);
+                if (!isNaN(bYear) && bYear > 1900 && bYear <= CURRENT_YEAR) {
+                    let age = CURRENT_YEAR - bYear;
+                    return Math.max(18, age);
+                }
+            }
+            return 50;
+        }
+
+        // 核心同步：以 members 為唯一基礎，無任何成績時保留空值
+        function getMonthRecord(monthNum, playerId) {
+            if (!monthlyData[monthNum]) monthlyData[monthNum] = [];
+            let rec = monthlyData[monthNum].find(r => r.id === playerId);
+            const pInfo = members.find(m => m.id === playerId);
+
+            if (!rec) {
+                rec = {
+                    id: playerId,
+                    col1: "",
+                    col2: "",
+                    birds: "",
+                    nearPin: "",
+                    hdcp: pInfo ? pInfo.initialHdcp : 18
+                };
+                monthlyData[monthNum].push(rec);
+            }
+
+            // 1月份永遠強制直接帶入後台原始差點
+            if (monthNum === 1 && pInfo) {
+                rec.hdcp = pInfo.initialHdcp;
+            }
+
+            return rec;
+        }
+
+        function initData() {
+            // 清理舊版本混亂鍵名，重設為乾淨的全新數據結構 v7
+            const savedMembers = localStorage.getItem('golf_league_members_v7');
+            if (savedMembers) {
+                try {
+                    members = JSON.parse(savedMembers);
+                } catch(e) {
+                    members = [...initialMembers];
+                }
+            } else {
+                members = [...initialMembers];
+            }
+
+            members.forEach(p => {
+                p.age = calculateAgeFromBirth(p.birth);
+                if (p.age >= 70) p.memberType = "senior";
+            });
+
+            const savedMonthly = localStorage.getItem('golf_league_monthly_data_v7');
+            if (savedMonthly) {
+                try {
+                    monthlyData = JSON.parse(savedMonthly);
+                } catch(e) {
+                    monthlyData = {};
+                }
+            }
+
+            // 初始化各月份（成績全部為空，不含任何虛擬假成績）
+            for (let m = 1; m <= 12; m++) {
+                if (!monthlyData[m]) monthlyData[m] = [];
+                members.forEach(p => {
+                    let rec = monthlyData[m].find(r => r.id === p.id);
+                    if (!rec) {
+                        monthlyData[m].push({
+                            id: p.id,
+                            col1: "",
+                            col2: "",
+                            birds: "",
+                            nearPin: "",
+                            hdcp: p.initialHdcp
+                        });
+                    } else if (m === 1) {
+                        rec.hdcp = p.initialHdcp;
+                    }
+                });
+            }
+            saveData();
+        }
+
+        function saveData() {
+            localStorage.setItem('golf_league_members_v7', JSON.stringify(members));
+            localStorage.setItem('golf_league_monthly_data_v7', JSON.stringify(monthlyData));
+        }
+
+        function calcHdcpAdj(rank, hdcp) {
+            if (rank === 1) {
+                if (hdcp <= 9) return -1;
+                if (hdcp <= 19) return -2;
+                return -3;
+            } else if (rank === 2) {
+                if (hdcp <= 9) return 0;
+                if (hdcp <= 19) return -1;
+                return -2;
+            } else if (rank === 3) {
+                if (hdcp <= 19) return 0;
+                return -1;
+            }
+            return 0;
+        }
+
+        // 淨桿低於標準桿 72 (≤ 71) 額外減桿：依「該月個人差點」分級
+        // true = 僅前三名套用額外減桿；false = 所有淨桿 ≤ 71 者皆套用
+        const BONUS_TOP3_ONLY = true;
+
+        function calcLowNetBonus(hdcp, net) {
+            if (net === null || net === undefined || isNaN(net) || net >= 72) return 0;
+            // 標準桿 72；低於標準桿 1~N 桿為第 1 級 (71 桿為起點)，持續累加、無上限
+            // 差點 0-9：每 4 桿；10-19：每 3 桿；20-28：每 2 桿；29 以上：每 1 桿
+            const step = hdcp <= 9 ? 4 : hdcp <= 19 ? 3 : hdcp <= 28 ? 2 : 1;
+            return Math.ceil((72 - net) / step);
+        }
+
+        // 12月會長盃：計分次數門檻 (與「年度總桿統計表」的計分次數同一算法：1~11月每月1次、12月每天1次)
+        const MONTH12_MIN_COUNT = 5;
+
+        function countScoredRounds(playerId) {
+            let n = 0;
+            for (let m = 1; m <= 11; m++) {
+                const r = getMonthRecord(m, playerId);
+                if (r && r.col1 !== "" && r.col2 !== "" && !isNaN(r.col1) && !isNaN(r.col2)) n++;
+            }
+            const r12 = getMonthRecord(12, playerId);
+            if (r12 && r12.col1 !== "" && !isNaN(r12.col1)) n++;
+            if (r12 && r12.col2 !== "" && !isNaN(r12.col2)) n++;
+            return n;
+        }
+
+        // 月賽計算
+        function computeMonthResults(monthNum) {
+            const isMonth12 = (monthNum === 12);
+
+            const computed = members.map(pInfo => {
+                const item = getMonthRecord(monthNum, pInfo.id);
+                const hasScore = item.col1 !== "" && item.col2 !== "" && !isNaN(item.col1) && !isNaN(item.col2);
+                const val1 = hasScore ? parseInt(item.col1) : 0;
+                const val2 = hasScore ? parseInt(item.col2) : 0;
+                const gross = hasScore ? (val1 + val2) : null;
+                // 1月份永遠強制讀取管理者後台初始差點 initialHdcp，若未設定或為空則為 0
+                const parsedHdcp = (item.hdcp !== "" && item.hdcp !== null && !isNaN(item.hdcp)) ? parseInt(item.hdcp) : null;
+                const hdcp = (monthNum === 1) 
+                    ? (pInfo ? (parseInt(pInfo.initialHdcp) || 0) : 0) 
+                    : (parsedHdcp !== null ? parsedHdcp : (pInfo && pInfo.initialHdcp !== undefined ? pInfo.initialHdcp : 0));
+                
+                // 1~11月規則：個人差點為空白或 0 則不計算淨桿成績，且不列入排名
+                const isHdcpInvalidForNet = !isMonth12 && (hdcp === null || hdcp === 0 || hdcp === "");
+
+                let net = null;
+                if (hasScore && !isHdcpInvalidForNet) {
+                    net = isMonth12 ? (gross - (hdcp * 2)) : (gross - hdcp);
+                }
+
+                const eligible = isMonth12 ? (countScoredRounds(pInfo.id) >= MONTH12_MIN_COUNT) : (!isHdcpInvalidForNet);
+
+                return {
+                    id: pInfo.id,
+                    name: pInfo.name,
+                    engName: pInfo.engName,
+                    age: pInfo.age || 50,
+                    memberType: pInfo.memberType || "regular",
+                    col1: val1 || item.col1,
+                    col2: val2 || item.col2,
+                    gross,
+                    net,
+                    hdcp: hdcp !== null ? hdcp : "",
+                    diff: (hasScore && !isMonth12) ? (val1 - val2) : null,
+                    count: isMonth12 ? countScoredRounds(pInfo.id) : null,
+                    eligible,
+                    birds: item.birds !== "" ? parseInt(item.birds) : "",
+                    nearPin: item.nearPin !== "" ? parseInt(item.nearPin) : "",
+                    hasScore
+                };
+            });
+
+            // 12月：計分次數不足者不計淨桿、不排名 (仍給出賽 2 分)，排在名單最後
+            const scored = computed.filter(p => p.hasScore);
+            const ranked = scored.filter(p => p.eligible);
+            const unranked = scored.filter(p => !p.eligible).sort((a, b) => a.id - b.id);
+            ranked.sort((a, b) => {
+                if (a.net !== b.net) return a.net - b.net;
+                if (a.hdcp !== b.hdcp) return a.hdcp - b.hdcp;
+                return b.age - a.age;
+            });
+            unranked.forEach(p => {
+                p.rank = null;
+                p.isBB = false;
+                p.isLucky7 = false;
+                p.adj = 0;
+                p.adjRank = 0;
+                p.adjBonus = 0;
+                p.nextHdcp = p.hdcp;
+                p.points = 2;
+                p.isXiaoBo = false;
+                p.isDaBo = false;
+            });
+            const active = [...ranked, ...unranked];
+
+            const totalActive = ranked.length;
+            const bbRank = totalActive > 1 ? totalActive - 1 : 0;
+
+            ranked.forEach((p, idx) => {
+                const rank = idx + 1;
+                p.rank = rank;
+                p.isBB = (rank === bbRank);
+                p.isLucky7 = (rank === 7);
+
+                if (isMonth12) {
+                    p.adj = 0;
+                    p.nextHdcp = p.hdcp;
+                    p.adjRank = 0;
+                    p.adjBonus = 0;
+                } else {
+                    p.adjRank = calcHdcpAdj(rank, p.hdcp);   // 名次調整 (負數=減桿)
+                    p.adjBonus = (!BONUS_TOP3_ONLY || rank <= 3) ? calcLowNetBonus(p.hdcp, p.net) : 0;
+                    p.adj = p.adjRank - p.adjBonus;
+                    p.nextHdcp = Math.max(0, p.hdcp + p.adj);
+                }
+
+                if (rank === 1) p.points = isMonth12 ? 22 : 13;
+                else if (rank === 2) p.points = isMonth12 ? 16 : 10;
+                else if (rank === 3) p.points = isMonth12 ? 12 : 8;
+                else if (!isMonth12 && p.net <= 80) p.points = 3;
+                else p.points = 2;
+            });
+
+            // 小波獎 (僅 1~11 月)：前九洞 − 後九洞 ≥ 0 者參選，差距最小者勝；
+            // 差距相同 → 前九洞桿數少者勝；仍相同 → 淨桿低 > 差點低 > 年長勝
+            let xiaoBo = null;
+            ranked.forEach(p => { p.isXiaoBo = false; });
+            if (!isMonth12) {
+                const cands = active.filter(p => p.diff !== null && p.diff >= 0);
+                cands.sort((a, b) => {
+                    if (a.diff !== b.diff) return a.diff - b.diff;
+                    if (a.col1 !== b.col1) return a.col1 - b.col1;
+                    if (a.net !== b.net) return a.net - b.net;
+                    if (a.hdcp !== b.hdcp) return a.hdcp - b.hdcp;
+                    return b.age - a.age;
+                });
+                if (cands.length > 0) {
+                    xiaoBo = cands[0];
+                    xiaoBo.isXiaoBo = true;
+                }
+            }
+
+            // 大波獎 (僅 1~11 月)：前九洞 − 後九洞 差值最大者勝；
+            // 差值相同 → 差點低者勝 → 年長者勝
+            let daBo = null;
+            ranked.forEach(p => { p.isDaBo = false; });
+            if (!isMonth12) {
+                const cands = active.filter(p => p.diff !== null && p.diff > 0);
+                cands.sort((a, b) => {
+                    if (a.diff !== b.diff) return b.diff - a.diff;
+                    if (a.hdcp !== b.hdcp) return a.hdcp - b.hdcp;
+                    return b.age - a.age;
+                });
+                if (cands.length > 0) {
+                    daBo = cands[0];
+                    daBo.isDaBo = true;
+                }
+            }
+
+            // 預設未出賽隊員屬性
+            const inactive = computed.filter(p => !p.hasScore);
+            inactive.forEach(p => {
+                p.rank = null;
+                p.adj = 0;
+                p.nextHdcp = p.hdcp;
+                p.points = null;
+                p.isBB = false;
+                p.isLucky7 = false;
+                p.isXiaoBo = false;
+                p.isDaBo = false;
+            });
+
+            // 【關鍵修正】總幹事自訂積分覆蓋檢查：置於最後執行，確保不論是否有成績，皆永遠保留手動輸入之自訂積分！
+            computed.forEach(p => {
+                const rec = getMonthRecord(monthNum, p.id);
+                if (rec && rec.customPoints !== undefined && rec.customPoints !== null && rec.customPoints !== "" && !isNaN(rec.customPoints)) {
+                    p.points = parseInt(rec.customPoints);
+                    p.isCustomPoints = true;
+                } else {
+                    p.isCustomPoints = false;
+                }
+            });
+
+            return { active, inactive, all: computed, xiaoBo, daBo };
+        }
+
+        // 全年度總桿統計表計算
+        function computeGrossStatistics() {
+            return members.map(player => {
+                const roundScores = [];
+                const playedGrosses = [];
+
+                for (let m = 1; m <= 11; m++) {
+                    const rec = getMonthRecord(m, player.id);
+                    if (rec && rec.col1 !== "" && rec.col2 !== "" && !isNaN(rec.col1) && !isNaN(rec.col2)) {
+                        const g = parseInt(rec.col1) + parseInt(rec.col2);
+                        roundScores.push({ id: `m${m}`, label: `${m}月`, gross: g, isBest5: false });
+                        playedGrosses.push({ id: `m${m}`, gross: g });
+                    } else {
+                        roundScores.push({ id: `m${m}`, label: `${m}月`, gross: null, isBest5: false });
+                    }
+                }
+
+                const rec12 = getMonthRecord(12, player.id);
+                if (rec12 && rec12.col1 !== "" && !isNaN(rec12.col1)) {
+                    const g1 = parseInt(rec12.col1);
+                    roundScores.push({ id: 'm12_d1', label: '12月第1場', gross: g1, isBest5: false });
+                    playedGrosses.push({ id: 'm12_d1', gross: g1 });
+                } else {
+                    roundScores.push({ id: 'm12_d1', label: '12月第1場', gross: null, isBest5: false });
+                }
+
+                if (rec12 && rec12.col2 !== "" && !isNaN(rec12.col2)) {
+                    const g2 = parseInt(rec12.col2);
+                    roundScores.push({ id: 'm12_d2', label: '12月第2場', gross: g2, isBest5: false });
+                    playedGrosses.push({ id: 'm12_d2', gross: g2 });
+                } else {
+                    roundScores.push({ id: 'm12_d2', label: '12月第2場', gross: null, isBest5: false });
+                }
+
+                const count = playedGrosses.length;
+                let avgScore = "-";
+                let nextYearHdcp = player.initialHdcp;
+                let calcFormulaDesc = "尚未出賽";
+
+                if (count > 0) {
+                    const sum = playedGrosses.reduce((acc, cur) => acc + cur.gross, 0);
+                    avgScore = Number((sum / count).toFixed(1));
+
+                    playedGrosses.sort((a, b) => a.gross - b.gross);
+                    const best5 = playedGrosses.slice(0, 5);
+                    const best5Ids = new Set(best5.map(x => x.id));
+
+                    roundScores.forEach(rs => {
+                        if (rs.gross !== null && best5Ids.has(rs.id) && count >= 5) {
+                            rs.isBest5 = true;
+                        }
+                    });
+
+                    if (player.age >= 70) {
+                        const raw = Math.floor((avgScore - 72) * 0.85);
+                        nextYearHdcp = Math.min(36, Math.max(0, raw));
+                        calcFormulaDesc = `70歲長春: ⌊(${avgScore}-72)×0.85⌋`;
+                    } else if (player.memberType === "new" || player.memberType === "comeback") {
+                        const evalScores = playedGrosses.slice(0, 3);
+                        const evalAvg = evalScores.reduce((acc, c) => acc + c.gross, 0) / evalScores.length;
+                        const raw = Math.floor((evalAvg - 72) * 0.7);
+                        nextYearHdcp = Math.min(36, Math.max(0, raw));
+                        calcFormulaDesc = `新進考核: ⌊(${evalAvg.toFixed(1)}-72)×0.7⌋`;
+                    } else if (count >= 5) {
+                        const best5Avg = best5.reduce((acc, c) => acc + c.gross, 0) / 5;
+                        const raw = Math.floor((best5Avg - 72) * 0.8);
+                        nextYearHdcp = Math.min(36, Math.max(0, raw));
+                        calcFormulaDesc = `最佳5場平均(${best5Avg.toFixed(1)}-72)×0.8`;
+                    } else {
+                        const raw = Math.floor((avgScore - 72) * 0.7);
+                        nextYearHdcp = Math.min(36, Math.max(0, raw));
+                        calcFormulaDesc = `未滿5場平均(${avgScore}-72)×0.7`;
+                    }
+
+                    if (nextYearHdcp > 36) nextYearHdcp = 36;
+                }
+
+                return {
+                    id: player.id,
+                    name: player.name,
+                    engName: player.engName,
+                    age: player.age,
+                    memberType: player.memberType,
+                    roundScores,
+                    count,
+                    avgScore,
+                    nextYearHdcp,
+                    calcFormulaDesc
+                };
+            });
+        }
+
+        // 技術獎統計計算
+        function computeSkillsStatistics() {
+            return members.map(player => {
+                let totalBirds = 0;
+                let totalNearPin = 0;
+                let hasAnySkills = false;
+                const monthlySkills = [];
+
+                for (let m = 1; m <= 12; m++) {
+                    const rec = getMonthRecord(m, player.id);
+                    const bCount = (rec && rec.birds !== "" && !isNaN(rec.birds)) ? parseInt(rec.birds) : null;
+                    const npCount = (rec && rec.nearPin !== "" && !isNaN(rec.nearPin)) ? parseInt(rec.nearPin) : null;
+                    
+                    if (bCount !== null) { totalBirds += bCount; hasAnySkills = true; }
+                    if (npCount !== null) { totalNearPin += npCount; hasAnySkills = true; }
+
+                    monthlySkills.push({
+                        month: m,
+                        birds: bCount,
+                        nearPin: npCount
+                    });
+                }
+
+                return {
+                    id: player.id,
+                    name: player.name,
+                    engName: player.engName,
+                    age: player.age,
+                    memberType: player.memberType,
+                    monthlySkills,
+                    totalBirds: hasAnySkills ? totalBirds : "-",
+                    totalNearPin: hasAnySkills ? totalNearPin : "-"
+                };
+            });
+        }
+
+        // 渲染 1~12 月份 Tab
+        function renderMonthTabs() {
+            const container = document.getElementById('monthTabs');
+            container.innerHTML = '';
+            for (let m = 1; m <= 12; m++) {
+                const conf = MONTH_CONFIG.find(c => c.month === m);
+                const btn = document.createElement('button');
+                const isSelected = (currentMonth === m);
+                let btnStyle = isSelected ? 'tab-active shadow-md' : 'bg-slate-100 hover:bg-slate-200 text-slate-700';
+                if (conf.isMajor && !isSelected) btnStyle = 'bg-amber-100/70 hover:bg-amber-200 text-amber-900 font-semibold';
+                btn.className = `px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition whitespace-nowrap ${btnStyle}`;
+                btn.innerHTML = `${conf.isMajor ? '<i class="fa-solid fa-trophy text-amber-500 mr-1"></i>' : '<i class="fa-solid fa-flag text-[11px] mr-1"></i>'} ${conf.name}`;
+                btn.onclick = () => {
+                    currentMonth = m;
+                    renderMonthTabs();
+                    renderMonthlyTable();
+                };
+                container.appendChild(btn);
+            }
+        }
+
+        // 月賽表格排序模式切換：'roster' (固定序號) 或 'rank' (名次榜)
+        let monthlyViewSort = 'roster';
+
+        function toggleMonthlySort(mode) {
+            monthlyViewSort = mode;
+            const btnRoster = document.getElementById('btnSortRoster');
+            const btnRank = document.getElementById('btnSortRank');
+            if (btnRoster && btnRank) {
+                if (mode === 'roster') {
+                    btnRoster.className = "px-2.5 py-1 rounded-md transition bg-white text-emerald-950 shadow-xs";
+                    btnRank.className = "px-2.5 py-1 rounded-md transition text-emerald-200 hover:text-white";
+                } else {
+                    btnRank.className = "px-2.5 py-1 rounded-md transition bg-white text-emerald-950 shadow-xs";
+                    btnRoster.className = "px-2.5 py-1 rounded-md transition text-emerald-200 hover:text-white";
+                }
+            }
+            renderMonthlyTable();
+        }
+
+        // ==================== 比賽球場名稱 (可編輯、本機儲存) ====================
+        const COURSE_KEY = 'golf_league_courses_v1';
+
+        function escHtml(str) {
+            return String(str === undefined || str === null ? '' : str)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function sync12Course(conf) {
+            conf.course = `第一天: ${conf.courseDay1 || '未填'} / 第二天: ${conf.courseDay2 || '未填'}`;
+        }
+
+        function loadCourseNames() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(COURSE_KEY) || '{}');
+                MONTH_CONFIG.forEach(c => {
+                    const sv = saved[c.month];
+                    if (!sv) return;
+                    if (c.month === 12) {
+                        if (typeof sv.courseDay1 === 'string') c.courseDay1 = sv.courseDay1;
+                        if (typeof sv.courseDay2 === 'string') c.courseDay2 = sv.courseDay2;
+                        sync12Course(c);
+                    } else if (typeof sv.course === 'string') {
+                        c.course = sv.course;
+                    }
+                });
+            } catch (e) {}
+        }
+
+        function saveCourseNames() {
+            const o = {};
+            MONTH_CONFIG.forEach(c => {
+                o[c.month] = c.month === 12 ? { courseDay1: c.courseDay1, courseDay2: c.courseDay2 } : { course: c.course };
+            });
+            localStorage.setItem(COURSE_KEY, JSON.stringify(o));
+        }
+
+        function updateCourseName(which, val) {
+            const conf = MONTH_CONFIG.find(c => c.month === currentMonth);
+            if (!conf) return;
+            if (currentMonth === 12) {
+                if (which === 'd1') conf.courseDay1 = val; else conf.courseDay2 = val;
+                sync12Course(conf);
+            } else {
+                conf.course = val;
+            }
+            saveCourseNames();
+        }
+
+        function onCourseChanged() {
+            renderMonthlyTable();
+            if (!document.getElementById('viewGrossStats').classList.contains('hidden')) renderGrossStatsTable();
+            if (!document.getElementById('viewAnnual').classList.contains('hidden')) renderAnnualTable();
+        }
+
+        // 說明卡：積分與差點調整規則
+        function renderRuleCard(isMonth12) {
+            const title = document.getElementById('monthlyRuleCardTitle');
+            const box = document.getElementById('monthlyRuleCardContent');
+            if (!title || !box) return;
+            const card = (h, body) => `<div class="bg-white/70 border border-emerald-100 rounded-lg p-2"><div class="font-bold text-emerald-900 mb-0.5">${h}</div><div>${body}</div></div>`;
+            if (isMonth12) {
+                title.innerText = '12月會長盃積分標準 (扣雙倍差點，年終不調差點)：';
+                box.innerHTML = card('🥇 第1名', '22 分') + card('🥈 第2名', '16 分') + card('🥉 第3名', '12 分') +
+                    `<div class="sm:col-span-3">其餘出賽者皆 2 分</div>
+                    <div class="sm:col-span-3 bg-blue-50 border border-blue-200 rounded-lg p-2">計分次數 (參照年度總桿統計表，1~11月每月 1 次、12月每天 1 次) 需 ≥ ${MONTH12_MIN_COUNT} 才顯示淨桿並參與排名；≤ ${MONTH12_MIN_COUNT - 1} 者不顯示淨桿與名次，僅得出賽 2 分。</div>`;
+            } else {
+                title.innerText = '球隊月賽差點調整標準 (僅前三名調整)：';
+                box.innerHTML =
+                    card('🥇 淨桿第1名', '差點 0-9 減1桿；10-19 減2桿；20以上 減3桿') +
+                    card('🥈 淨桿第2名', '差點 0-9 不動；10-19 減1桿；20以上 減2桿') +
+                    card('🥉 淨桿第3名', '差點 0-19 不動；20以上 減1桿') +
+                    `<div class="sm:col-span-3 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                        <div class="font-bold text-amber-900 mb-0.5">⛳ 淨桿低於標準桿 72 額外減桿 (加在名次調整之上)</div>
+                        <div>以 71 桿為起點，每低於標準桿 72 桿 1 級、每級加減 1 桿，無上限 (72 桿以上不加)：</div>
+                        <div>差點 0-9：每 4 桿 +1 (68-71 +1、64-67 +2…)　|　差點 10-19：每 3 桿 +1 (69-71 +1、66-68 +2…)</div>
+                        <div>差點 20-28：每 2 桿 +1 (70-71 +1、68-69 +2…)　|　差點 29以上：每 1 桿 +1 (71 +1、70 +2…)</div>
+                    </div>`;
+            }
+        }
+
+        // 即時行內輸入更新：總桿與淨桿原地換算，游標絕對不丟失
+        function handleScoreInput(playerId, field, value) {
+            const isMonth12 = (currentMonth === 12);
+            const rec = getMonthRecord(currentMonth, playerId);
+            const pInfo = members.find(m => m.id === playerId);
+            if (!rec || !pInfo) return;
+
+            rec[field] = value === "" ? "" : parseInt(value);
+
+            if (currentMonth === 1 && field === 'hdcp') {
+                pInfo.initialHdcp = parseInt(value) || 0;
+            }
+
+            const val1 = (rec.col1 !== "" && rec.col1 !== null && !isNaN(rec.col1)) ? parseInt(rec.col1) : null;
+            const val2 = (rec.col2 !== "" && rec.col2 !== null && !isNaN(rec.col2)) ? parseInt(rec.col2) : null;
+            const grossEl = document.getElementById(`gross_${playerId}`);
+            const netEl = document.getElementById(`net_${playerId}`);
+            const countEl = document.getElementById(`count_${playerId}`);
+            let net12Blocked = false;
+            if (isMonth12) {
+                const cnt = countScoredRounds(playerId);
+                net12Blocked = cnt < MONTH12_MIN_COUNT;
+                if (countEl) {
+                    countEl.innerText = cnt;
+                    countEl.className = "p-2.5 font-bold text-center " + (net12Blocked ? "text-rose-600 bg-rose-50/60" : "text-blue-900 bg-blue-50/40");
+                }
+            }
+
+            if (val1 !== null && val2 !== null) {
+                const gross = val1 + val2;
+                const parsedHdcp = (rec.hdcp !== "" && rec.hdcp !== null && !isNaN(rec.hdcp)) ? parseInt(rec.hdcp) : null;
+                const hdcp = (currentMonth === 1) ? pInfo.initialHdcp : (parsedHdcp !== null ? parsedHdcp : (pInfo.initialHdcp || null));
+                const isHdcpInvalidForNet = !isMonth12 && (hdcp === null || hdcp === 0);
+
+                const net = (!isHdcpInvalidForNet) ? (isMonth12 ? (gross - hdcp * 2) : (gross - hdcp)) : null;
+                if (grossEl) {
+                    grossEl.innerText = gross;
+                    grossEl.className = "p-2.5 font-black text-base text-slate-800 text-center";
+                }
+                if (netEl) {
+                    if (net12Blocked || isHdcpInvalidForNet || net === null) {
+                        netEl.innerText = "-";
+                        netEl.className = "p-2.5 font-bold text-slate-300 text-center";
+                    } else {
+                        netEl.innerText = net;
+                        netEl.className = "p-2.5 font-black text-base text-emerald-800 text-center";
+                    }
+                }
+            } else {
+                if (grossEl) {
+                    grossEl.innerText = "-";
+                    grossEl.className = "p-2.5 font-bold text-slate-300 text-center";
+                }
+                if (netEl) {
+                    netEl.innerText = "-";
+                    netEl.className = "p-2.5 font-bold text-slate-300 text-center";
+                }
+            }
+
+            saveData();
+        }
+
+        function handleScoreChange() {
+            saveData();
+            updateTopAwardsBanner();
+            if (!document.getElementById('viewAnnual').classList.contains('hidden')) renderAnnualTable();
+            if (!document.getElementById('viewGrossStats').classList.contains('hidden')) renderGrossStatsTable();
+            if (!document.getElementById('viewSkillsStats').classList.contains('hidden')) renderSkillsStatsTable();
+        }
+
+        function updateTopAwardsBanner() {
+            const { active, xiaoBo, daBo } = computeMonthResults(currentMonth);
+            const champ = active.find(p => p.rank === 1);
+            const r2 = active.find(p => p.rank === 2);
+            const r3 = active.find(p => p.rank === 3);
+            const l7 = active.find(p => p.rank === 7);
+            const bb = active.find(p => p.isBB);
+
+            const b1 = document.getElementById('badgeChampion');
+            const b2 = document.getElementById('badge2nd');
+            const b3 = document.getElementById('badge3rd');
+            const bl = document.getElementById('badgeLucky7');
+            const bbb = document.getElementById('badgeBB');
+            const bCount = document.getElementById('monthlyCount');
+
+            if (b1) b1.innerText = champ ? `${champ.engName || champ.name} (淨桿 ${champ.net})` : '尚無';
+            if (b2) b2.innerText = r2 ? `${r2.engName || r2.name} (淨桿 ${r2.net})` : '尚無';
+            if (b3) b3.innerText = r3 ? `${r3.engName || r3.name} (淨桿 ${r3.net})` : '尚無';
+            if (bl) bl.innerText = l7 ? `${l7.engName || l7.name} (淨桿 ${l7.net})` : '尚無';
+            if (bbb) bbb.innerText = bb ? `${bb.engName || bb.name} (第${bb.rank}名)` : '尚無';
+            const bx = document.getElementById('badgeXiaoBo');
+            if (bx) {
+                if (currentMonth === 12) bx.innerText = '12月不適用';
+                else bx.innerText = xiaoBo ? `${xiaoBo.engName || xiaoBo.name} (${xiaoBo.col1}-${xiaoBo.col2}=${xiaoBo.diff})` : '尚無';
+            }
+            const bd = document.getElementById('badgeDaBo');
+            if (bd) {
+                if (currentMonth === 12) bd.innerText = '12月不適用';
+                else bd.innerText = daBo ? `${daBo.engName || daBo.name} (${daBo.col1}-${daBo.col2}=${daBo.diff})` : '尚無';
+            }
+            if (bCount) bCount.innerText = `出賽 ${active.length} / 共 ${members.length} 人`;
+        }
+
+        // 渲染月賽主表
+        function renderMonthlyTable() {
+            const conf = MONTH_CONFIG.find(c => c.month === currentMonth) || MONTH_CONFIG[0];
+            const isMonth12 = (currentMonth === 12);
+
+            document.getElementById('monthlyTitle').innerText = conf.fullName;
+            document.getElementById('badgeRoundType').innerText = conf.isMajor ? '★ 年終會長盃 (雙日賽)' : '常規月例賽';
+            document.getElementById('badgeRoundType').className = conf.isMajor ? 'px-2 py-0.5 rounded text-xs font-bold bg-amber-400 text-amber-950' : 'px-2 py-0.5 rounded text-xs font-bold bg-emerald-600 text-white';
+            const wrapSingle = document.getElementById('courseSingleWrap');
+            const wrapDouble = document.getElementById('courseDoubleWrap');
+            if (isMonth12) {
+                wrapSingle.classList.add('hidden');
+                wrapDouble.classList.remove('hidden');
+                wrapDouble.classList.add('flex');
+                document.getElementById('inputCourseD1').value = conf.courseDay1 || '';
+                document.getElementById('inputCourseD2').value = conf.courseDay2 || '';
+            } else {
+                wrapDouble.classList.add('hidden');
+                wrapDouble.classList.remove('flex');
+                wrapSingle.classList.remove('hidden');
+                document.getElementById('inputCourse').value = conf.course || '';
+            }
+            renderRuleCard(isMonth12);
+
+            const th1 = document.getElementById('thScoreCol1');
+            const th2 = document.getElementById('thScoreCol2');
+            const thHdcp = document.getElementById('thHdcpCol');
+            const thNet = document.getElementById('thNetCol');
+            const thAdj = document.getElementById('thHdcpAdjCol');
+            const thCount = document.getElementById('thCountCol');
+            if (thCount) thCount.classList.toggle('hidden', !isMonth12);
+            const btnHdcpNext = document.getElementById('btnNextMonthHdcpContainer');
+            const ruleDesc = document.getElementById('monthlyRuleDesc');
+
+            if (isMonth12) {
+                th1.innerHTML = '第一天成績<br><span class="text-[10px] font-normal text-amber-800">' + escHtml(conf.courseDay1 || '場地未填') + '(18洞)</span>';
+                th2.innerHTML = '第二天成績<br><span class="text-[10px] font-normal text-amber-800">' + escHtml(conf.courseDay2 || '場地未填') + '(18洞)</span>';
+                th1.className = 'p-2.5 w-28 bg-amber-100/60 text-amber-950 font-bold text-center';
+                th2.className = 'p-2.5 w-28 bg-amber-100/60 text-amber-950 font-bold text-center';
+                thHdcp.innerHTML = '個人差點<br><span class="text-[9px] text-amber-800 font-normal">(雙倍扣減)</span>';
+                thNet.innerHTML = '淨桿成績<br><span class="text-[9px] text-emerald-800 font-normal">總桿 &minus; 2&times;差點</span>';
+                thAdj.classList.add('hidden');
+                btnHdcpNext.classList.add('hidden');
+                ruleDesc.innerHTML = `12月會長盃扣雙倍差點 • 年終不調差點 • 計分次數 ≥ ${MONTH12_MIN_COUNT} 才計淨桿與名次`;
+            } else {
+                th1.innerHTML = '前九洞 (OUT)';
+                th2.innerHTML = '後九洞 (IN)';
+                th1.className = 'p-2.5 w-24 text-slate-700 font-bold text-center';
+                th2.className = 'p-2.5 w-24 text-slate-700 font-bold text-center';
+                thHdcp.innerHTML = currentMonth === 1 ? '原始差點<br><span class="text-[9px] text-emerald-700 font-normal">(後台連動/0不計淨桿)</span>' : '個人差點';
+                thNet.innerHTML = '淨桿';
+                thAdj.classList.remove('hidden');
+                btnHdcpNext.classList.remove('hidden');
+                ruleDesc.innerHTML = `出賽 ${members.length} 人 • 淨桿低 &gt; 差點低 &gt; 年長勝`;
+            }
+
+            const { active, all } = computeMonthResults(currentMonth);
+            updateTopAwardsBanner();
+
+            let displayList = [...all];
+            if (monthlyViewSort === 'roster') {
+                displayList.sort((a, b) => a.id - b.id);
+            } else {
+                displayList = [...active, ...all.filter(p => !p.hasScore)];
+            }
+
+            const tbody = document.getElementById('monthlyTableBody');
+            tbody.innerHTML = '';
+
+            const placeholder1 = isMonth12 ? '第一天' : 'OUT';
+            const placeholder2 = isMonth12 ? '第二天' : 'IN';
+            const thG1 = document.getElementById('thGuestCol1');
+            const thG2 = document.getElementById('thGuestCol2');
+            if (thG1 && thG2) {
+                thG1.innerText = isMonth12 ? '第一天 (18洞)' : '前九桿 (OUT)';
+                thG2.innerText = isMonth12 ? '第二天 (18洞)' : '後九桿 (IN)';
+            }
+
+            displayList.forEach(p => {
+                const tr = document.createElement('tr');
+                if (p.rank === 1) tr.className = "row-1st font-semibold";
+                else if (p.rank === 2) tr.className = "row-2nd font-semibold";
+                else if (p.rank === 3) tr.className = "row-3rd font-semibold";
+                else if (p.rank === 7) tr.className = "row-lucky7 font-semibold";
+                else if (p.isBB) tr.className = "row-bb font-semibold";
+                else tr.className = "hover:bg-slate-50 transition";
+
+                let adjCell = '';
+                if (!isMonth12) {
+                    let adjText = "-";
+                    let adjClass = "text-slate-400";
+                    if (p.rank >= 1 && p.rank <= 3 || p.adj < 0) {
+                        if (p.adj < 0) {
+                            const detail = p.adjBonus > 0 ? `<span class="block text-[9px] font-normal">名次 ${Math.abs(p.adjRank)} + 低標 ${p.adjBonus}</span>` : '';
+                            adjText = `減 ${Math.abs(p.adj)} 桿 ➔ ${p.nextHdcp}${detail}`;
+                            adjClass = "text-emerald-700 font-bold bg-emerald-100/60 px-2 py-0.5 rounded inline-block";
+                        } else {
+                            adjText = `不變 (${p.hdcp})`;
+                            adjClass = "text-slate-600 bg-slate-200/60 px-2 py-0.5 rounded";
+                        }
+                    }
+                    adjCell = `<td class="p-2.5 text-center"><span class="${adjClass}">${adjText}</span></td>`;
+                }
+
+                const netHidden = isMonth12 && p.eligible === false;
+                let countCell = '';
+                if (isMonth12) {
+                    const low = p.eligible === false;
+                    countCell = `<td class="p-2.5 font-bold text-center ${low ? 'text-rose-600 bg-rose-50/60' : 'text-blue-900 bg-blue-50/40'}" id="count_${p.id}" title="計分次數需 ≥ ${MONTH12_MIN_COUNT} 才計淨桿與名次">${p.count}</td>`;
+                }
+
+                let rankBadge = p.rank ? `<span class="font-bold text-slate-800">${p.rank}</span>` : `<span class="text-slate-300">-</span>`;
+                if (p.rank === 1) rankBadge = `<span class="w-6 h-6 rounded-full bg-amber-500 text-white inline-flex items-center justify-center font-black shadow-xs">1</span>`;
+                if (p.rank === 2) rankBadge = `<span class="w-6 h-6 rounded-full bg-slate-400 text-white inline-flex items-center justify-center font-black shadow-xs">2</span>`;
+                if (p.rank === 3) rankBadge = `<span class="w-6 h-6 rounded-full bg-orange-500 text-white inline-flex items-center justify-center font-black shadow-xs">3</span>`;
+                if (p.rank === 7) rankBadge = `<span class="w-6 h-6 rounded-full bg-emerald-600 text-white inline-flex items-center justify-center font-black shadow-xs">7</span>`;
+                if (p.isBB) rankBadge = `<span class="px-1.5 py-0.5 rounded bg-rose-500 text-white text-[10px] font-bold">BB(${p.rank})</span>`;
+
+                const nameDisplay = `
+                    <div class="font-bold text-sm text-slate-800">${p.engName || p.name}</div>
+                    <div class="text-[11px] text-slate-500 flex items-center gap-1 font-medium">
+                        ${p.name}
+                        ${p.age >= 70 ? '<span class="text-[9px] text-purple-700 bg-purple-100 px-1 rounded">長春</span>' : ''}
+                        ${p.memberType === 'new' ? '<span class="text-[9px] text-orange-700 bg-orange-100 px-1 rounded">新進</span>' : ''}
+                        ${p.isXiaoBo ? '<span class="text-[9px] text-sky-700 bg-sky-100 border border-sky-300 px-1 rounded font-bold">🌊 小波</span>' : ''}
+                        ${p.isDaBo ? '<span class="text-[9px] text-violet-700 bg-violet-100 border border-violet-300 px-1 rounded font-bold">🌋 大波</span>' : ''}
+                    </div>
+                `;
+
+                tr.innerHTML = `
+                    <td class="p-2.5 text-center">${rankBadge}</td>
+                    <td class="p-2.5 text-left">${nameDisplay}</td>
+                    <!-- 前九洞直觀輸入 -->
+                    <td class="p-2 text-center">
+                        <input type="number" min="20" max="150" value="${p.col1 !== null && p.col1 !== undefined ? p.col1 : ''}" placeholder="${placeholder1}" 
+                            oninput="handleScoreInput(${p.id}, 'col1', this.value)"
+                            onchange="handleScoreChange()"
+                            class="w-20 text-center border-2 border-emerald-600/40 focus:border-emerald-600 rounded-lg py-1.5 text-base font-bold text-slate-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white">
+                    </td>
+                    <!-- 後九洞直觀輸入 -->
+                    <td class="p-2 text-center">
+                        <input type="number" min="20" max="150" value="${p.col2 !== null && p.col2 !== undefined ? p.col2 : ''}" placeholder="${placeholder2}" 
+                            oninput="handleScoreInput(${p.id}, 'col2', this.value)"
+                            onchange="handleScoreChange()"
+                            class="w-20 text-center border-2 border-emerald-600/40 focus:border-emerald-600 rounded-lg py-1.5 text-base font-bold text-slate-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white">
+                    </td>
+                    <!-- 總桿即時換算 -->
+                    <td class="p-2.5 ${p.gross !== null ? 'font-black text-base text-slate-800' : 'font-bold text-slate-300'} text-center" id="gross_${p.id}">${p.gross !== null ? p.gross : '-'}</td>
+                    <!-- 個人差點 -->
+                    <td class="p-2 text-center">
+                        ${currentMonth === 1 ? `
+                            <input type="number" value="${p.hdcp}" readonly
+                                title="1月份差點直接連動管理者後台之初始差點（若為0不計淨桿與排名），如需修改請至管理後台設定"
+                                class="w-14 text-center border border-slate-200 bg-slate-100 rounded-md py-1 font-bold ${p.hdcp === 0 ? 'text-rose-500 bg-rose-50 border-rose-200' : 'text-slate-700'} cursor-not-allowed">
+                        ` : `
+                            <input type="number" min="0" max="36" value="${p.hdcp}" 
+                                oninput="handleScoreInput(${p.id}, 'hdcp', this.value)"
+                                onchange="handleScoreChange()"
+                                class="w-14 text-center border border-slate-300 rounded-md py-1 font-bold text-slate-700">
+                        `}
+                    </td>
+                    ${countCell}
+                    <!-- 淨桿即時換算 -->
+                    <td class="p-2.5 ${(p.net !== null && !netHidden) ? 'font-black text-base text-emerald-800' : 'font-bold text-slate-300'} text-center" id="net_${p.id}">${(p.net !== null && !netHidden) ? p.net : '-'}</td>
+                    ${adjCell}
+                    <!-- 抓鳥 -->
+                    <td class="p-2 text-center">
+                        <input type="number" min="0" max="18" value="${p.birds !== '' && p.birds !== null ? p.birds : ''}" placeholder="-" 
+                            oninput="handleScoreInput(${p.id}, 'birds', this.value)"
+                            onchange="handleScoreChange()"
+                            class="w-12 text-center border border-amber-300 rounded-md py-1 font-bold text-amber-900 bg-amber-50/40">
+                    </td>
+                    <!-- Near Pin -->
+                    <td class="p-2 text-center bg-teal-50/30">
+                        <input type="number" min="0" max="10" value="${p.nearPin !== '' && p.nearPin !== null ? p.nearPin : ''}" placeholder="-" 
+                            oninput="handleScoreInput(${p.id}, 'nearPin', this.value)"
+                            onchange="handleScoreChange()"
+                            class="w-12 text-center border border-teal-300 rounded-md py-1 font-bold text-teal-900 bg-teal-50/40">
+                    </td>
+                    ${(() => {
+                        if (isPointsEditUnlocked) {
+                            const valToShow = (p.isCustomPoints && p.points !== null) ? p.points : (p.points !== null ? p.points : '');
+                            return `
+                                <td class="p-2 text-center bg-amber-50/50">
+                                    <input type="number" min="0" max="100" value="${valToShow}" placeholder="自動"
+                                        oninput="handleCustomPointsInput(${p.id}, this.value)"
+                                        onchange="handleScoreChange()"
+                                        title="${p.isCustomPoints ? '總幹事自訂積分（清空留白即恢復系統自動計分）' : '系統自動計分（可直接輸入數值覆蓋）'}"
+                                        class="w-14 text-center border-2 border-amber-400 focus:border-amber-600 rounded-md py-1 font-black ${p.isCustomPoints ? 'text-rose-600 bg-amber-100/70 border-rose-400' : 'text-amber-900 bg-white'} shadow-inner focus:outline-none focus:ring-1 focus:ring-amber-500">
+                                </td>
+                            `;
+                        } else {
+                            if (p.isCustomPoints && p.points !== null) {
+                                return `<td class="p-2.5 text-center"><span class="custom-points-badge text-sm">${p.points}</span><span class="text-[9px] text-purple-600 block font-semibold">自訂</span></td>`;
+                            } else {
+                                return `<td class="p-2.5 font-black text-amber-700 text-sm text-center">${p.points !== null ? p.points : '-'}</td>`;
+                            }
+                        }
+                    })()}
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // 同步渲染當月份之隨隊來賓成績表格
+            renderGuestTable();
+        }
+
+        // ==================== 頁面 1: 全年度積分榜渲染 ====================
+        function renderAnnualTable() {
+            const summary = members.map(base => {
+                let totalPoints = 0;
+                let attendedMonths = 0;
+                let monthScores = [];
+                let latestHdcp = base.initialHdcp;
+
+                for (let m = 1; m <= 12; m++) {
+                    const res = computeMonthResults(m);
+                    const record = res.all.find(p => p.id === base.id);
+                    // 只要該月有桿數成績，或者總幹事手動給予了自訂積分(points !== null)，皆計入年度累計積分
+                    if (record && (record.hasScore || record.isCustomPoints || record.points !== null)) {
+                        attendedMonths++;
+                        totalPoints += (record.points || 0);
+                        latestHdcp = record.nextHdcp || record.hdcp;
+                        monthScores.push({ 
+                            month: m, 
+                            points: record.points, 
+                            rank: record.rank, 
+                            isCustom: !!record.isCustomPoints 
+                        });
+                    } else {
+                        monthScores.push({ month: m, points: null, isCustom: false });
+                    }
+                }
+
+                return {
+                    id: base.id,
+                    name: base.name,
+                    engName: base.engName,
+                    age: base.age,
+                    monthScores,
+                    totalPoints: attendedMonths > 0 ? totalPoints : "-",
+                    attendedMonths,
+                    latestHdcp
+                };
+            });
+
+            // 積分排名：固定依積分計算 (與顯示排序無關)；同分時差點低者在前
+            const byPoints = [...summary].sort((a, b) => {
+                if (a.totalPoints === "-" && b.totalPoints === "-") return a.id - b.id;
+                if (a.totalPoints === "-") return 1;
+                if (b.totalPoints === "-") return -1;
+                if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+                return a.latestHdcp - b.latestHdcp;
+            });
+            byPoints.forEach((p, idx) => {
+                p.rank = p.totalPoints !== "-" ? idx + 1 : "-";
+            });
+
+            // 頂部前 6 名：永遠依積分排名
+            const top6 = byPoints.filter(p => p.totalPoints !== "-").slice(0, 6);
+
+            // 下方矩陣表：依切換按鈕排序 (不影響 rank)
+            if (annualSortBy === 'rank') {
+                summary.splice(0, summary.length, ...byPoints);
+            } else {
+                summary.sort((a, b) => a.id - b.id);
+            }
+            const top6Container = document.getElementById('top6Container');
+            top6Container.innerHTML = '';
+            const badges = ['🥇 榜首', '🥈 第二', '🥉 第三', '第 4 名', '第 5 名', '第 6 名'];
+            
+            if (top6.length === 0) {
+                top6Container.innerHTML = '<div class="col-span-6 text-center text-emerald-200/80 py-4 text-xs font-semibold">年度賽事成績登錄後，將自動在此展示年度排名前 6 名風雲榜 🏆</div>';
+            } else {
+                top6.forEach((p, idx) => {
+                    const card = document.createElement('div');
+                    card.className = "bg-white/10 backdrop-blur-md rounded-xl p-3 border border-emerald-400/20 flex flex-col justify-between hover:bg-white/15 transition";
+                    card.innerHTML = `
+                        <div class="flex items-center justify-between text-xs mb-1">
+                            <span class="font-bold text-amber-300">${badges[idx]}</span>
+                            <span class="text-[10px] text-emerald-200">差點 ${p.latestHdcp}</span>
+                        </div>
+                        <div class="text-base sm:text-lg font-black tracking-wide">${p.engName || p.name}</div>
+                        <div class="text-xs text-emerald-200/90">${p.name}</div>
+                        <div class="mt-2 pt-2 border-t border-emerald-500/30 flex items-center justify-between">
+                            <span class="text-[11px] text-emerald-100/80">累計積分</span>
+                            <span class="text-base font-extrabold text-amber-300">${p.totalPoints} <span class="text-[10px] font-normal text-white">分</span></span>
+                        </div>
+                    `;
+                    top6Container.appendChild(card);
+                });
+            }
+
+            const tbody = document.getElementById('annualTableBody');
+            tbody.innerHTML = '';
+
+            summary.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.className = (typeof p.rank === 'number' && p.rank <= 6) ? "bg-emerald-50/40 hover:bg-emerald-50 transition" : "hover:bg-slate-50 transition";
+
+                let monthCells = "";
+                p.monthScores.forEach(ms => {
+                    if (ms.points !== null) {
+                        if (ms.isCustom) {
+                            // 總幹事手動修改自訂積分：醒目的紫底白字/高對比徽章標註
+                            monthCells += `<td class="p-2 text-center"><span class="custom-points-badge" title="總幹事手動自訂積分">${ms.points} <span class="text-[9px] font-normal opacity-80">★</span></span></td>`;
+                        } else {
+                            let badgeColor = "text-slate-700 font-bold";
+                            if (ms.rank === 1) badgeColor = "font-black text-amber-600 bg-amber-100 rounded px-1";
+                            else if (ms.rank === 2) badgeColor = "font-bold text-slate-600 bg-slate-200 rounded px-1";
+                            else if (ms.rank === 3) badgeColor = "font-bold text-orange-600 bg-orange-100 rounded px-1";
+                            monthCells += `<td class="p-2 text-center"><span class="${badgeColor}">${ms.points}</span></td>`;
+                        }
+                    } else {
+                        monthCells += `<td class="p-2 text-center text-slate-300">-</td>`;
+                    }
+                });
+
+                let rankShow = `<span class="font-bold text-slate-800">${p.rank}</span>`;
+                if (p.rank === 1) rankShow = `<span class="px-2 py-0.5 rounded-full bg-amber-400 text-amber-950 font-black text-xs">👑 1</span>`;
+                else if (typeof p.rank === 'number' && p.rank <= 3) rankShow = `<span class="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-950 font-black text-xs">${p.rank}</span>`;
+
+                const nameDisplay = `
+                    <div class="font-bold text-xs sm:text-sm text-slate-800">${p.engName || p.name}</div>
+                    <div class="text-[10px] text-slate-400 font-medium">${p.name}</div>
+                `;
+
+                tr.innerHTML = `
+                    <td class="p-2.5 text-slate-400 text-center sticky left-0 bg-inherit">${p.id}</td>
+                    <td class="p-2.5 text-left sticky left-12 bg-inherit shadow-r">${nameDisplay}</td>
+                    ${monthCells}
+                    <td class="p-2.5 font-black text-emerald-900 bg-emerald-50/60 text-sm text-center">${p.totalPoints}</td>
+                    <td class="p-2.5 font-bold text-center">${rankShow}</td>
+                    <td class="p-2.5 font-bold text-slate-700 bg-slate-50 text-center">${p.latestHdcp}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function toggleSort(type) {
+            annualSortBy = type;
+            renderAnnualTable();
+        }
+
+        // ==================== 頁面 2: 全年度總桿統計表渲染 ====================
+        function renderGrossStatsTable() {
+            const headerRow = document.getElementById('grossHeaderRow');
+            headerRow.innerHTML = '';
+
+            for (let m = 1; m <= 11; m++) {
+                const conf = MONTH_CONFIG.find(c => c.month === m);
+                const th = document.createElement('th');
+                th.className = 'p-1 border-r border-slate-200 text-slate-600 text-center';
+                th.innerHTML = `
+                    <div class="font-bold">${m}月</div>
+                    <div class="text-[9px] text-slate-500 truncate max-w-[65px] mx-auto" title="${escHtml(conf.course)}">${escHtml((conf.course || '-').substring(0, 4))}</div>
+                `;
+                headerRow.appendChild(th);
+            }
+
+            const c12 = MONTH_CONFIG.find(c => c.month === 12);
+            const th12_1 = document.createElement('th');
+            th12_1.className = 'p-1 border-r border-slate-200 bg-amber-100/70 font-bold text-amber-950 text-center';
+            th12_1.innerHTML = `
+                <div>12月第1場</div>
+                <div class="text-[9px] text-amber-800 truncate max-w-[65px] mx-auto" title="${escHtml(c12.courseDay1)}">${escHtml((c12.courseDay1 || '第1天').substring(0, 4))}(第1天)</div>
+            `;
+            headerRow.appendChild(th12_1);
+
+            const th12_2 = document.createElement('th');
+            th12_2.className = 'p-1 border-r border-slate-200 bg-amber-100/70 font-bold text-amber-950 text-center';
+            th12_2.innerHTML = `
+                <div>12月第2場</div>
+                <div class="text-[9px] text-amber-800 truncate max-w-[65px] mx-auto" title="${escHtml(c12.courseDay2)}">${escHtml((c12.courseDay2 || '第2天').substring(0, 4))}(第2天)</div>
+            `;
+            headerRow.appendChild(th12_2);
+
+            let data = computeGrossStatistics();
+
+            if (grossSortBy === 'avg') {
+                data.sort((a, b) => {
+                    if (a.avgScore === "-" && b.avgScore === "-") return a.id - b.id;
+                    if (a.avgScore === "-") return 1;
+                    if (b.avgScore === "-") return -1;
+                    return a.avgScore - b.avgScore;
+                });
+            } else if (grossSortBy === 'hdcp') {
+                data.sort((a, b) => a.nextYearHdcp - b.nextYearHdcp);
+            } else {
+                data.sort((a, b) => a.id - b.id);
+            }
+
+            const tbody = document.getElementById('grossStatsTableBody');
+            tbody.innerHTML = '';
+
+            data.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+
+                let typeBadge = '<span class="text-slate-600 text-[11px]">一般隊友</span>';
+                if (p.age >= 70) typeBadge = '<span class="px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 text-[10px] font-bold">長春(70+)</span>';
+                else if (p.memberType === 'new') typeBadge = '<span class="px-1.5 py-0.5 rounded bg-orange-100 text-orange-800 text-[10px] font-bold">新進審核</span>';
+
+                let roundsHtml = '';
+                p.roundScores.forEach(rs => {
+                    if (rs.gross !== null) {
+                        const cellClass = rs.isBest5 ? 'best5-chip shadow-2xs' : 'text-slate-800 font-medium';
+                        roundsHtml += `<td class="p-1.5 border-r border-slate-200 text-center"><span class="${cellClass}">${rs.gross}</span></td>`;
+                    } else {
+                        roundsHtml += `<td class="p-1.5 border-r border-slate-200 text-center text-slate-300">-</td>`;
+                    }
+                });
+
+                let hdcpBadge = `<span class="font-black text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full text-xs">${p.nextYearHdcp}</span>`;
+
+                const nameDisplay = `
+                    <div class="font-bold text-xs sm:text-sm text-slate-800">${p.engName || p.name}</div>
+                    <div class="text-[10px] text-slate-400 font-medium">${p.name}</div>
+                `;
+
+                tr.innerHTML = `
+                    <td class="p-2 text-slate-400 sticky left-0 bg-inherit border-r border-slate-200 text-center">${p.id}</td>
+                    <td class="p-2 text-left sticky left-12 bg-inherit shadow-r border-r border-slate-200">${nameDisplay}</td>
+                    <td class="p-2 border-r border-slate-200 text-center">${typeBadge}</td>
+                    ${roundsHtml}
+                    <td class="p-2 font-bold text-blue-900 bg-blue-50/40 border-r border-slate-200 text-center">${p.count}</td>
+                    <td class="p-2 font-bold text-emerald-900 bg-emerald-50/40 border-r border-slate-200 text-center">${p.avgScore}</td>
+                    <td class="p-2 bg-amber-50/60 text-center" title="${p.calcFormulaDesc}">
+                        ${hdcpBadge}
+                        <div class="text-[9px] text-slate-400 mt-0.5 truncate max-w-[80px] mx-auto">${p.calcFormulaDesc.split(':')[0]}</div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function sortGrossStats(type) {
+            grossSortBy = type;
+            renderGrossStatsTable();
+        }
+
+        // ==================== 頁面 3: 全年度抓鳥與 Near Pin 統計表渲染 ====================
+        function renderSkillsStatsTable() {
+            let data = computeSkillsStatistics();
+
+            // 找出全季最多抓鳥與最多近洞之最大數值（不管成績或其他因素，只要數字一樣都放在 highlight）
+            let maxBirds = 0;
+            let maxNearPin = 0;
+
+            data.forEach(p => {
+                if (p.totalBirds !== "-" && typeof p.totalBirds === "number") {
+                    if (p.totalBirds > maxBirds) maxBirds = p.totalBirds;
+                }
+                if (p.totalNearPin !== "-" && typeof p.totalNearPin === "number") {
+                    if (p.totalNearPin > maxNearPin) maxNearPin = p.totalNearPin;
+                }
+            });
+
+            // 只要數字等於最大值，全部並列收錄於榮譽展台
+            const birdLeaders = maxBirds > 0 ? data.filter(p => p.totalBirds === maxBirds) : [];
+            const nearPinLeaders = maxNearPin > 0 ? data.filter(p => p.totalNearPin === maxNearPin) : [];
+
+            // 渲染展台姓名名單：支援單人或多人並列尊榮標籤展示
+            function renderLeaderBadges(leaders) {
+                if (!leaders || leaders.length === 0) {
+                    return `<span class="text-xl font-bold opacity-80">尚無</span>`;
+                }
+                if (leaders.length === 1) {
+                    const p = leaders[0];
+                    return `<span class="text-xl sm:text-2xl font-black">${p.engName ? `${p.engName} (${p.name})` : p.name}</span>`;
+                }
+                return `<div class="flex flex-wrap items-center gap-1.5 mt-1">` + 
+                    leaders.map(p => {
+                        const name = p.engName ? `${p.engName} ${p.name}` : p.name;
+                        return `<span class="bg-white/25 hover:bg-white/35 backdrop-blur-md px-2.5 py-1 rounded-lg text-xs sm:text-sm font-bold border border-white/30 shadow-xs">${name}</span>`;
+                    }).join('') +
+                `</div>`;
+            }
+
+            document.getElementById('topBirdieLeader').innerHTML = renderLeaderBadges(birdLeaders);
+            document.getElementById('topBirdieScore').innerText = maxBirds > 0 
+                ? `全季最高累計抓鳥 ${maxBirds} 隻 ${birdLeaders.length > 1 ? `（${birdLeaders.length} 位並列）` : ''}` 
+                : `全季抓鳥累計 0 隻`;
+
+            document.getElementById('topNearPinLeader').innerHTML = renderLeaderBadges(nearPinLeaders);
+            document.getElementById('topNearPinScore').innerText = maxNearPin > 0 
+                ? `全季最高累計 Near Pin ${maxNearPin} 次 ${nearPinLeaders.length > 1 ? `（${nearPinLeaders.length} 位並列）` : ''}` 
+                : `全季 Near Pin 累計 0 次`;
+
+            if (skillsSortBy === 'birds') {
+                data.sort((a, b) => {
+                    const ba = a.totalBirds === "-" ? -1 : a.totalBirds;
+                    const bb = b.totalBirds === "-" ? -1 : b.totalBirds;
+                    if (bb !== ba) return bb - ba;
+                    return a.id - b.id;
+                });
+            } else if (skillsSortBy === 'nearPin') {
+                data.sort((a, b) => {
+                    const na = a.totalNearPin === "-" ? -1 : a.totalNearPin;
+                    const nb = b.totalNearPin === "-" ? -1 : b.totalNearPin;
+                    if (nb !== na) return nb - na;
+                    return a.id - b.id;
+                });
+            } else {
+                data.sort((a, b) => a.id - b.id);
+            }
+
+            const tbody = document.getElementById('skillsStatsTableBody');
+            tbody.innerHTML = '';
+
+            data.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+
+                let monthsHtml = '';
+                p.monthlySkills.forEach(m => {
+                    const bShow = m.birds !== null && m.birds > 0 ? `<span class="font-bold text-amber-800 bg-amber-100/90 px-1.5 py-0.5 rounded">${m.birds}</span>` : `<span class="text-slate-300">-</span>`;
+                    const npShow = m.nearPin !== null && m.nearPin > 0 ? `<span class="font-bold text-teal-800 bg-teal-100/90 px-1.5 py-0.5 rounded">${m.nearPin}</span>` : `<span class="text-slate-300">-</span>`;
+                    const isMajor = (m.month === 12);
+
+                    // 鳥對應抓鳥王琥珀橘刷淡，近對應近洞王青綠刷淡，月份邊界加粗實線區隔
+                    const bgBird = isMajor ? 'bg-amber-100/40' : 'bg-amber-50/50';
+                    const bgNearPin = isMajor ? 'bg-teal-100/40' : 'bg-teal-50/50';
+                    const borderSub = isMajor ? 'border-r border-amber-200/80' : 'border-r border-slate-200/60';
+                    const borderEnd = isMajor ? 'border-r-2 border-amber-400' : 'border-r-2 border-slate-300';
+
+                    monthsHtml += `
+                        <td class="p-1 ${borderSub} ${bgBird} text-center">${bShow}</td>
+                        <td class="p-1 ${borderEnd} ${bgNearPin} text-center">${npShow}</td>
+                    `;
+                });
+
+                const nameDisplay = `
+                    <div class="font-bold text-xs sm:text-sm text-slate-800">${p.engName || p.name}</div>
+                    <div class="text-[10px] text-slate-400 font-medium">${p.name}</div>
+                `;
+
+                tr.innerHTML = `
+                    <td class="p-2 text-slate-400 sticky left-0 bg-inherit border-r-2 border-slate-300 text-center">${p.id}</td>
+                    <td class="p-2 text-left sticky left-12 bg-inherit shadow-r border-r-2 border-slate-300">${nameDisplay}</td>
+                    ${monthsHtml}
+                    <td class="p-2 font-black text-amber-900 bg-amber-50 border-r border-slate-200 text-sm text-center">${p.totalBirds}</td>
+                    <td class="p-2 font-black text-teal-900 bg-teal-50 text-sm text-center">${p.totalNearPin}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function sortSkillsStats(type) {
+            skillsSortBy = type;
+            renderSkillsStatsTable();
+        }
+
+        // ==================== 總幹事專區：名冊與差點管理 ====================
+        function renderMemberAdminTable() {
+            const tbody = document.getElementById('memberAdminTableBody');
+            tbody.innerHTML = '';
+
+            const badge = document.getElementById('adminMemberTotalBadge');
+            if (badge) badge.innerText = `共 ${members.length} 位隊員`;
+
+            members.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+
+                let typeBadge = '<span class="text-slate-600 text-[11px]">一般隊友</span>';
+                if (p.age >= 70) typeBadge = '<span class="px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 text-[10px] font-bold">長春(70+)</span>';
+                else if (p.memberType === 'new') typeBadge = '<span class="px-1.5 py-0.5 rounded bg-orange-100 text-orange-800 text-[10px] font-bold">新進審核</span>';
+
+                tr.innerHTML = `
+                    <td class="p-2.5 text-slate-400 text-center">${p.id}</td>
+                    <td class="p-2.5 text-left font-bold text-slate-800">
+                        <input type="text" value="${p.name}" onchange="updateMemberField(${p.id}, 'name', this.value)"
+                            class="w-24 px-2 py-1 border border-slate-300 rounded font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </td>
+                    <td class="p-2.5 text-left">
+                        <input type="text" value="${p.engName || ''}" placeholder="English Name" onchange="updateMemberField(${p.id}, 'engName', this.value)"
+                            class="w-32 px-2 py-1 border border-slate-300 rounded font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    </td>
+                    <td class="p-2.5 bg-blue-50/40 text-center">
+                        <input type="text" value="${p.birth || ''}" placeholder="YYYY-MM" onchange="updateMemberBirth(${p.id}, this.value)"
+                            class="w-28 text-center px-2 py-1 border border-blue-300 rounded font-mono font-bold text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </td>
+                    <td class="p-2.5 bg-emerald-50/50 text-center">
+                        <span class="font-black text-emerald-900 text-sm">${p.age} 歲</span>
+                    </td>
+                    <td class="p-2.5 text-center">
+                        <select onchange="updateMemberField(${p.id}, 'memberType', this.value)" class="text-xs border border-slate-300 rounded px-1.5 py-1">
+                            <option value="regular" ${p.memberType === 'regular' ? 'selected' : ''}>一般隊友</option>
+                            <option value="senior" ${p.memberType === 'senior' ? 'selected' : ''}>長春前輩(70+)</option>
+                            <option value="new" ${p.memberType === 'new' ? 'selected' : ''}>新進或復出</option>
+                        </select>
+                    </td>
+                    <td class="p-2.5 bg-amber-50/60 text-center">
+                        <input type="number" min="0" max="36" value="${p.initialHdcp}" onchange="updateMemberField(${p.id}, 'initialHdcp', this.value)"
+                            class="w-14 text-center px-1.5 py-1 border border-amber-300 rounded font-bold text-amber-900">
+                    </td>
+                    <td class="p-2.5 text-center">
+                        <button onclick="deleteMember(${p.id})" class="text-rose-500 hover:text-rose-700 p-1 text-xs" title="刪除隊員">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 修改名冊欄位：原始差點立即同步更新 1 月份差點
+        function updateMemberField(id, field, value) {
+            const member = members.find(m => m.id === id);
+            if (member) {
+                if (field === 'initialHdcp') {
+                    member[field] = parseInt(value) || 0;
+                    const rec1 = getMonthRecord(1, id);
+                    if (rec1) rec1.hdcp = member.initialHdcp;
+                } else {
+                    member[field] = value;
+                }
+                saveData();
+                renderAllViews();
+            }
+        }
+
+        function updateMemberBirth(id, birthStr) {
+            const member = members.find(m => m.id === id);
+            if (member) {
+                member.birth = birthStr.trim();
+                member.age = calculateAgeFromBirth(member.birth);
+                if (member.age >= 70) member.memberType = "senior";
+                saveData();
+                renderMemberAdminTable();
+                renderAllViews();
+            }
+        }
+
+        function addNewMember() {
+            const newId = members.length > 0 ? Math.max(...members.map(m => m.id)) + 1 : 1;
+            const newP = {
+                id: newId,
+                name: `新球友${newId}`,
+                engName: `New Player ${newId}`,
+                birth: "1980-01",
+                initialHdcp: 18,
+                memberType: "regular",
+                age: 46
+            };
+            members.push(newP);
+            for (let m = 1; m <= 12; m++) {
+                getMonthRecord(m, newId);
+            }
+            saveData();
+            renderMemberAdminTable();
+            renderAllViews();
+        }
+
+        function deleteMember(id) {
+            if (confirm("確定要刪除此隊員嗎？其歷史賽事成績將同步清除。")) {
+                members = members.filter(m => m.id !== id);
+                for (let m = 1; m <= 12; m++) {
+                    if (monthlyData[m]) {
+                        monthlyData[m] = monthlyData[m].filter(r => r.id !== id);
+                    }
+                }
+                saveData();
+                renderMemberAdminTable();
+                renderAllViews();
+            }
+        }
+
+        // ==================== Excel 匯入與範本下載功能 ====================
+        function triggerExcelImport() {
+            document.getElementById('excelFileInput').click();
+        }
+
+        function handleExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+                    if (jsonData.length === 0) {
+                        alert("Excel 檔案內無資料！請確認檔案內容。");
+                        return;
+                    }
+
+                    let importedCount = 0;
+                    const newMembers = [];
+
+                    jsonData.forEach((row, index) => {
+                        let name = row["中文姓名"] || row["姓名"] || row["隊員姓名"] || row["Name"] || "";
+                        let engName = row["英文姓名"] || row["英文名"] || row["English Name"] || row["EngName"] || "";
+                        let birth = row["出生年月"] || row["出生日期"] || row["西元年月"] || row["生日"] || row["Birth"] || "1975-01";
+                        let hdcp = row["原始差點"] || row["初始差點"] || row["差點"] || row["Hdcp"] || row["Handicap"] || 18;
+                        let type = row["會員類別"] || row["類別"] || row["組別"] || row["Type"] || "regular";
+
+                        name = String(name).trim();
+                        engName = String(engName).trim();
+                        birth = String(birth).trim().replace(/\//g, '-');
+                        if (!isNaN(birth) && Number(birth) > 20000) {
+                            try {
+                                const excelDate = new Date((Number(birth) - 25569) * 86400 * 1000);
+                                birth = `${excelDate.getFullYear()}-${String(excelDate.getMonth()+1).padStart(2, '0')}`;
+                            } catch(err) {}
+                        }
+
+                        if (!name && !engName) return;
+
+                        let memberType = "regular";
+                        if (String(type).includes("長春") || String(type).includes("senior")) memberType = "senior";
+                        else if (String(type).includes("新") || String(type).includes("new")) memberType = "new";
+
+                        const parsedHdcp = parseInt(hdcp) || 18;
+                        const age = calculateAgeFromBirth(birth);
+
+                        newMembers.push({
+                            id: index + 1,
+                            name: name || `球友${index+1}`,
+                            engName: engName || name,
+                            birth: birth,
+                            initialHdcp: Math.min(36, Math.max(0, parsedHdcp)),
+                            memberType: age >= 70 ? "senior" : memberType,
+                            age: age
+                        });
+                        importedCount++;
+                    });
+
+                    if (importedCount === 0) {
+                        alert("未能從 Excel 讀取到有效的隊員資料，請使用標準名單範本！");
+                        return;
+                    }
+
+                    if (confirm(`成功解析到 ${importedCount} 位隊員！\n是否覆蓋現有名冊並同步更新全年度賽事名單？\n(點選「確定」將更新名冊，1月份差點將立即套用新名冊之原始差點)`)) {
+                        members = newMembers;
+                        
+                        for (let m = 1; m <= 12; m++) {
+                            monthlyData[m] = members.map(p => {
+                                return {
+                                    id: p.id,
+                                    col1: "",
+                                    col2: "",
+                                    birds: "",
+                                    nearPin: "",
+                                    hdcp: (m === 1) ? p.initialHdcp : p.initialHdcp
+                                };
+                            });
+                        }
+
+                        saveData();
+                        renderMemberAdminTable();
+                        renderAllViews();
+                        alert(`已成功匯入 ${importedCount} 位隊員！全年度名冊與 1 月份原始差點已全面同步更新。`);
+                    }
+
+                } catch (err) {
+                    alert("解析 Excel 檔案發生錯誤：" + err.message);
+                } finally {
+                    event.target.value = "";
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function downloadExcelTemplate() {
+            const templateData = members.map(m => ({
+                "序號": m.id,
+                "中文姓名": m.name,
+                "英文姓名": m.engName,
+                "出生年月": m.birth,
+                "會員類別": m.memberType === "senior" ? "長春前輩" : (m.memberType === "new" ? "新進或復出" : "一般隊友"),
+                "原始差點": m.initialHdcp
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(templateData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "隊員名冊");
+            XLSX.writeFile(workbook, "友茂隊_隊員名冊標準範本.xlsx");
+        }
+
+        
+        // ==================== 總幹事積分手動編輯開關與密碼驗證 ====================
+        function togglePointsEditMode() {
+            // 點擊切換前，若有焦點在輸入框上先主動觸發失焦以確保資料已存檔
+            if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                document.activeElement.blur();
+            }
+            if (isPointsEditUnlocked) {
+                isPointsEditUnlocked = false;
+                updatePointsEditButtonUI();
+                renderMonthlyTable();
+            } else {
+                openPointsAuthModal();
+            }
+        }
+
+        function openPointsAuthModal() {
+            const modal = document.getElementById('pointsAuthModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                const input = document.getElementById('pointsPwdInput');
+                if (input) {
+                    input.value = '';
+                    input.focus();
+                }
+            }
+        }
+
+        function closePointsAuthModal() {
+            const modal = document.getElementById('pointsAuthModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function verifyPointsPassword() {
+            const input = document.getElementById('pointsPwdInput');
+            const pwd = input ? input.value : '';
+            if (pwd === ADMIN_PWD) {
+                isPointsEditUnlocked = true;
+                closePointsAuthModal();
+                updatePointsEditButtonUI();
+                renderMonthlyTable();
+                alert("已成功解鎖「月賽積分手動編輯」！\n現在可直接在表格內修改隊員積分。若清空留白，系統將自動恢復依名次規則計算。");
+            } else {
+                alert("密碼錯誤！請向總幹事確認管理密碼。");
+            }
+        }
+
+        function updatePointsEditButtonUI() {
+            const btn = document.getElementById('btnTogglePointsEdit');
+            const icon = document.getElementById('iconPointsLock');
+            const txt = document.getElementById('txtPointsLock');
+            if (!btn || !icon || !txt) return;
+
+            if (isPointsEditUnlocked) {
+                btn.className = "px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold transition flex items-center gap-1 whitespace-nowrap shadow-sm";
+                icon.className = "fa-solid fa-lock-open text-white";
+                txt.innerText = "積分編輯中 (點此鎖定)";
+            } else {
+                btn.className = "px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold transition flex items-center gap-1 whitespace-nowrap shadow-2xs border border-slate-300";
+                icon.className = "fa-solid fa-lock text-slate-500";
+                txt.innerText = "積分鎖定中";
+            }
+        }
+
+        function handleCustomPointsInput(playerId, value) {
+            const rec = getMonthRecord(currentMonth, playerId);
+            if (!rec) return;
+
+            if (value === "" || value === null || isNaN(value)) {
+                delete rec.customPoints;
+            } else {
+                rec.customPoints = parseInt(value);
+            }
+
+            saveData();
+            if (!document.getElementById('viewAnnual').classList.contains('hidden')) renderAnnualTable();
+        }
+
+        
+        // ==================== 隨隊來賓成績管理與計算 (不計入正式排名與年度積分) ====================
+        function getMonthGuests(monthNum) {
+            if (!monthlyData.guests) monthlyData.guests = {};
+            if (!monthlyData.guests[monthNum]) monthlyData.guests[monthNum] = [];
+            return monthlyData.guests[monthNum];
+        }
+
+        function addGuestRow() {
+            const list = getMonthGuests(currentMonth);
+            list.push({
+                id: Date.now() + Math.floor(Math.random() * 1000),
+                name: `來賓球友${list.length + 1}`,
+                col1: "",
+                col2: "",
+                note: ""
+            });
+            saveData();
+            renderGuestTable();
+        }
+
+        function deleteGuestRow(id) {
+            if (confirm("確定要刪除此筆來賓成績記錄嗎？")) {
+                const list = getMonthGuests(currentMonth);
+                const idx = list.findIndex(g => g.id === id);
+                if (idx !== -1) {
+                    list.splice(idx, 1);
+                    saveData();
+                    renderGuestTable();
+                }
+            }
+        }
+
+        function updateGuestField(id, field, value) {
+            const list = getMonthGuests(currentMonth);
+            const guest = list.find(g => g.id === id);
+            if (!guest) return;
+
+            if (field === 'col1' || field === 'col2') {
+                guest[field] = value === "" ? "" : parseInt(value);
+                const grossEl = document.getElementById(`guest_gross_${id}`);
+                const v1 = (guest.col1 !== "" && !isNaN(guest.col1)) ? parseInt(guest.col1) : null;
+                const v2 = (guest.col2 !== "" && !isNaN(guest.col2)) ? parseInt(guest.col2) : null;
+                if (grossEl) {
+                    grossEl.innerText = (v1 !== null && v2 !== null) ? (v1 + v2) : '-';
+                }
+            } else {
+                guest[field] = value;
+            }
+            saveData();
+        }
+
+        function renderGuestTable() {
+            const tbody = document.getElementById('guestTableBody');
+            const badge = document.getElementById('guestCountBadge');
+            if (!tbody) return;
+
+            const list = getMonthGuests(currentMonth);
+            if (badge) badge.innerText = `共 ${list.length} 位來賓`;
+
+            tbody.innerHTML = '';
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="py-3 text-center text-xs text-amber-800/60 font-semibold bg-white/40">目前本月份尚未登記隨隊來賓成績，點擊右上角「新增一筆來賓」即可登錄。</td></tr>`;
+                return;
+            }
+
+            const isMonth12 = (currentMonth === 12);
+            const p1 = isMonth12 ? '第一天' : 'OUT';
+            const p2 = isMonth12 ? '第二天' : 'IN';
+
+            list.forEach((g, idx) => {
+                const v1 = (g.col1 !== "" && g.col1 !== null && !isNaN(g.col1)) ? parseInt(g.col1) : null;
+                const v2 = (g.col2 !== "" && g.col2 !== null && !isNaN(g.col2)) ? parseInt(g.col2) : null;
+                const gross = (v1 !== null && v2 !== null) ? (v1 + v2) : '-';
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-amber-100/50 transition bg-white/70";
+                tr.innerHTML = `
+                    <td class="p-2 text-amber-900/60 font-bold">${idx + 1}</td>
+                    <td class="p-2 text-left font-bold text-slate-800">
+                        <input type="text" value="${g.name || ''}" placeholder="來賓大名"
+                            onchange="updateGuestField(${g.id}, 'name', this.value)"
+                            class="w-32 px-2 py-1 border border-amber-300 rounded font-bold text-amber-950 focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white">
+                    </td>
+                    <td class="p-2 text-center">
+                        <input type="number" min="20" max="150" value="${g.col1 !== null && g.col1 !== undefined ? g.col1 : ''}" placeholder="${p1}"
+                            oninput="updateGuestField(${g.id}, 'col1', this.value)"
+                            class="w-20 text-center border-2 border-amber-400 focus:border-amber-600 rounded-lg py-1 text-sm font-bold text-slate-800 bg-white focus:outline-none shadow-2xs">
+                    </td>
+                    <td class="p-2 text-center">
+                        <input type="number" min="20" max="150" value="${g.col2 !== null && g.col2 !== undefined ? g.col2 : ''}" placeholder="${p2}"
+                            oninput="updateGuestField(${g.id}, 'col2', this.value)"
+                            class="w-20 text-center border-2 border-amber-400 focus:border-amber-600 rounded-lg py-1 text-sm font-bold text-slate-800 bg-white focus:outline-none shadow-2xs">
+                    </td>
+                    <td class="p-2 font-black text-base text-amber-900 bg-amber-200/40 text-center" id="guest_gross_${g.id}">${gross}</td>
+                    <td class="p-2 text-left">
+                        <input type="text" value="${g.note || ''}" placeholder="選填備註 (如：林志明同組友人)"
+                            onchange="updateGuestField(${g.id}, 'note', this.value)"
+                            class="w-full px-2 py-1 border border-amber-200/80 rounded text-xs text-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white">
+                    </td>
+                    <td class="p-2 text-center">
+                        <button onclick="deleteGuestRow(${g.id})" class="text-rose-500 hover:text-rose-700 p-1 text-xs transition" title="刪除此筆來賓成績">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function applyHdcpToNextMonth() {
+            if (currentMonth >= 11) {
+                alert("11月結束後進入12月年終會長盃，請直接前往12月檢視！");
+                return;
+            }
+            const nextM = currentMonth + 1;
+            const { all } = computeMonthResults(currentMonth);
+            let updatedCount = 0;
+            let reducedCount = 0;
+
+            // 遍歷全體隊員：差點有調整者(負調整)帶入調整後新差點；其餘未調整與未出賽者，自動帶入本月個人差點，確保差點只減不增
+            members.forEach(p => {
+                const curRes = all.find(item => item.id === p.id);
+                const targetNext = getMonthRecord(nextM, p.id);
+                if (!targetNext || !curRes) return;
+
+                // 若本月有調減差點 (adj < 0)，curRes.nextHdcp 會小於本月差點；未調整或未出賽者延續本月差點
+                const effectiveNextHdcp = (curRes.nextHdcp !== undefined && curRes.nextHdcp !== null && curRes.nextHdcp !== "") 
+                    ? curRes.nextHdcp 
+                    : curRes.hdcp;
+
+                if (curRes.adj < 0) {
+                    reducedCount++;
+                }
+                targetNext.hdcp = effectiveNextHdcp;
+                updatedCount++;
+            });
+
+            saveData();
+            renderAllViews();
+            alert(`已成功將 ${currentMonth} 月差點結算帶入 ${nextM} 月！\n` +
+                  `• 全隊已同步更新（共 ${updatedCount} 位隊員）\n` +
+                  `• 差點有調減者：${reducedCount} 位（帶入調整後新差點）\n` +
+                  `• 其餘未調整/未出賽者：自動延續本月個人差點\n` +
+                  `※ 差點只會減少，不會增加。`);
+        }
+
+        // 快捷錄入 Modal
+        function openScoreEntryModal() {
+            const conf = MONTH_CONFIG.find(c => c.month === currentMonth) || MONTH_CONFIG[0];
+            const isMonth12 = (currentMonth === 12);
+            document.getElementById('entryModalTitle').innerText = `${conf.fullName} - 錄入成績`;
+
+            const lbl1 = document.getElementById('lblModalCol1');
+            const lbl2 = document.getElementById('lblModalCol2');
+            if (isMonth12) {
+                lbl1.innerText = `第一天成績 (${conf.courseDay1 || "場地未填"} 18洞)：`;
+                lbl2.innerText = `第二天成績 (${conf.courseDay2 || "場地未填"} 18洞)：`;
+            } else {
+                lbl1.innerText = "前九洞 (OUT)：";
+                lbl2.innerText = "後九洞 (IN)：";
+            }
+
+            const sel = document.getElementById('modalPlayerSelect');
+            sel.innerHTML = '';
+            members.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.innerText = `${p.engName || p.name} (${p.name})`;
+                sel.appendChild(opt);
+            });
+
+            loadPlayerModalData();
+            document.getElementById('scoreEntryModal').classList.remove('hidden');
+        }
+
+        function closeScoreEntryModal() {
+            document.getElementById('scoreEntryModal').classList.add('hidden');
+        }
+
+        function loadPlayerModalData() {
+            const pId = parseInt(document.getElementById('modalPlayerSelect').value);
+            const rec = getMonthRecord(currentMonth, pId);
+            const pInfo = members.find(m => m.id === pId);
+
+            if (rec) {
+                document.getElementById('modalCol1').value = (rec.col1 !== null && rec.col1 !== undefined) ? rec.col1 : '';
+                document.getElementById('modalCol2').value = (rec.col2 !== null && rec.col2 !== undefined) ? rec.col2 : '';
+                document.getElementById('modalHdcp').value = (currentMonth === 1 && pInfo) ? pInfo.initialHdcp : (rec.hdcp !== undefined ? rec.hdcp : (pInfo ? pInfo.initialHdcp : 18));
+                document.getElementById('modalBirds').value = rec.birds !== "" ? rec.birds : 0;
+                document.getElementById('modalNearPin').value = rec.nearPin !== "" ? rec.nearPin : 0;
+                
+                const wrapPoints = document.getElementById('modalCustomPointsWrap');
+                const inputPoints = document.getElementById('modalPoints');
+                if (wrapPoints && inputPoints) {
+                    if (isPointsEditUnlocked) {
+                        wrapPoints.classList.remove('hidden');
+                        inputPoints.value = (rec.customPoints !== undefined && rec.customPoints !== null) ? rec.customPoints : '';
+                    } else {
+                        wrapPoints.classList.add('hidden');
+                    }
+                }
+            }
+            calcModalGross();
+        }
+
+        function calcModalGross() {
+            const c1 = document.getElementById('modalCol1').value;
+            const c2 = document.getElementById('modalCol2').value;
+            if (c1 !== "" && c2 !== "") {
+                const g = parseInt(c1) + parseInt(c2);
+                document.getElementById('modalGrossPreview').innerText = `${g} 桿`;
+            } else {
+                document.getElementById('modalGrossPreview').innerText = `-`;
+            }
+        }
+
+        function saveModalScore() {
+            const pId = parseInt(document.getElementById('modalPlayerSelect').value);
+            const c1 = document.getElementById('modalCol1').value;
+            const c2 = document.getElementById('modalCol2').value;
+            const hdcp = document.getElementById('modalHdcp').value;
+            const birds = document.getElementById('modalBirds').value;
+            const nearPin = document.getElementById('modalNearPin').value;
+
+            const rec = getMonthRecord(currentMonth, pId);
+            if (rec) {
+                rec.col1 = c1 === "" ? "" : parseInt(c1);
+                rec.col2 = c2 === "" ? "" : parseInt(c2);
+                rec.hdcp = hdcp === "" ? 18 : parseInt(hdcp);
+                rec.birds = birds === "" ? "" : parseInt(birds);
+                rec.nearPin = nearPin === "" ? "" : parseInt(nearPin);
+
+                const inputPoints = document.getElementById('modalPoints');
+                if (inputPoints && isPointsEditUnlocked) {
+                    const pVal = inputPoints.value.trim();
+                    if (pVal === "" || isNaN(pVal)) {
+                        delete rec.customPoints;
+                    } else {
+                        rec.customPoints = parseInt(pVal);
+                    }
+                }
+
+                if (currentMonth === 1) {
+                    const member = members.find(m => m.id === pId);
+                    if (member) member.initialHdcp = rec.hdcp;
+                }
+
+                saveData();
+                renderAllViews();
+                closeScoreEntryModal();
+                alert("成績已成功錄入並更新！");
+            }
+        }
+
+        // 後台驗證
+        let secretClickCount = 0;
+        let secretClickTimer = null;
+
+        function handleSecretClick() {
+            secretClickCount++;
+            clearTimeout(secretClickTimer);
+            secretClickTimer = setTimeout(() => { secretClickCount = 0; }, 1200);
+            if (secretClickCount >= 3) {
+                secretClickCount = 0;
+                openPasswordModal();
+            }
+        }
+
+        function openPasswordModal() {
+            document.getElementById('passwordModal').classList.remove('hidden');
+            document.getElementById('adminPwdInput').value = '';
+            document.getElementById('adminPwdInput').focus();
+        }
+
+        function closePasswordModal() {
+            document.getElementById('passwordModal').classList.add('hidden');
+        }
+
+        function verifyPassword() {
+            const pwd = document.getElementById('adminPwdInput').value;
+            if (pwd === ADMIN_PWD) {
+                closePasswordModal();
+                switchView('memberAdmin');
+            } else {
+                alert("密碼錯誤！請向總幹事確認管理密碼。");
+            }
+        }
+
+        function lockAdmin() {
+            switchView('monthly');
+        }
+
+        // 分頁切換
+        function switchView(view) {
+            const vAnnual = document.getElementById('viewAnnual');
+            const vGross = document.getElementById('viewGrossStats');
+            const vSkills = document.getElementById('viewSkillsStats');
+            const vMonthly = document.getElementById('viewMonthly');
+            const vAdmin = document.getElementById('viewMemberAdmin');
+
+            const btnAnnual = document.getElementById('btnNavAnnual');
+            const btnGross = document.getElementById('btnNavGrossStats');
+            const btnSkills = document.getElementById('btnNavSkillsStats');
+            const btnMonthly = document.getElementById('btnNavMonthly');
+
+            vAnnual.classList.add('hidden');
+            vGross.classList.add('hidden');
+            vSkills.classList.add('hidden');
+            vMonthly.classList.add('hidden');
+            vAdmin.classList.add('hidden');
+
+            const inactiveBtn = "px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-emerald-800 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-sm";
+            const activeBtn = "px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition bg-white text-[#1b4d3e] shadow-sm flex items-center gap-1.5";
+
+            btnAnnual.className = inactiveBtn;
+            btnGross.className = inactiveBtn;
+            btnSkills.className = inactiveBtn;
+            btnMonthly.className = inactiveBtn;
+
+            if (view === 'annual') {
+                vAnnual.classList.remove('hidden');
+                btnAnnual.className = activeBtn;
+                renderAnnualTable();
+            } else if (view === 'grossStats') {
+                vGross.classList.remove('hidden');
+                btnGross.className = activeBtn;
+                renderGrossStatsTable();
+            } else if (view === 'skillsStats') {
+                vSkills.classList.remove('hidden');
+                btnSkills.className = activeBtn;
+                renderSkillsStatsTable();
+            } else if (view === 'memberAdmin') {
+                vAdmin.classList.remove('hidden');
+                renderMemberAdminTable();
+            } else {
+                vMonthly.classList.remove('hidden');
+                btnMonthly.className = activeBtn;
+                renderMonthlyTable();
+            }
+        }
+
+        function renderAllViews() {
+            renderMonthlyTable();
+            if (!document.getElementById('viewAnnual').classList.contains('hidden')) renderAnnualTable();
+            if (!document.getElementById('viewGrossStats').classList.contains('hidden')) renderGrossStatsTable();
+            if (!document.getElementById('viewSkillsStats').classList.contains('hidden')) renderSkillsStatsTable();
+        }
+
+        // LINE 戰報匯出
+        function exportLINEReport() {
+            const conf = MONTH_CONFIG.find(c => c.month === currentMonth) || MONTH_CONFIG[0];
+            const isMonth12 = (currentMonth === 12);
+            const { active, xiaoBo, daBo } = computeMonthResults(currentMonth);
+            if (active.length === 0) {
+                alert(`${conf.fullName} 尚未有隊友輸入成績！`);
+                return;
+            }
+
+            const champ = active.find(p => p.rank === 1);
+            const r2 = active.find(p => p.rank === 2);
+            const r3 = active.find(p => p.rank === 3);
+            const l7 = active.find(p => p.rank === 7);
+            const bb = active.find(p => p.isBB);
+
+            let txt = `🏆【友茂隊】${conf.fullName} 榮譽榜 🏆\n`;
+            txt += `📍 比賽球場：${conf.course}\n`;
+            txt += `──────────────────\n`;
+            if (isMonth12) {
+                txt += `★ 12月會長盃 (雙日賽扣雙倍差點)：\n`;
+                if (champ) txt += `🥇 淨桿冠軍：${champ.engName} ${champ.name} (兩天總桿${champ.gross}/差點${champ.hdcp}×2/淨桿${champ.net}) 獲得 22 積分\n`;
+                if (r2) txt += `🥈 淨桿亞軍：${r2.engName} ${r2.name} (兩天總桿${r2.gross}/差點${r2.hdcp}×2/淨桿${r2.net}) 獲得 16 積分\n`;
+                if (r3) txt += `🥉 淨桿季軍：${r3.engName} ${r3.name} (兩天總桿${r3.gross}/差點${r3.hdcp}×2/淨桿${r3.net}) 獲得 12 積分\n`;
+            } else {
+                if (champ) txt += `🥇 淨桿冠軍：${champ.engName} ${champ.name} (總桿${champ.gross}/差點${champ.hdcp}/淨桿${champ.net}) 獲得 13 積分\n`;
+                if (r2) txt += `🥈 淨桿亞軍：${r2.engName} ${r2.name} (總桿${r2.gross}/差點${r2.hdcp}/淨桿${r2.net}) 獲得 10 積分\n`;
+                if (r3) txt += `🥉 淨桿季軍：${r3.engName} ${r3.name} (總桿${r3.gross}/差點${r3.hdcp}/淨桿${r3.net}) 獲得 8 積分\n`;
+            }
+            if (l7) txt += `🍀 Lucky 7：${l7.engName} ${l7.name} (淨桿${l7.net})\n`;
+            if (bb) txt += `🏖️ BB 獎 (倒數第2)：${bb.engName} ${bb.name} (第${bb.rank}名)\n`;
+            if (!isMonth12 && xiaoBo) txt += `🌊 小波獎：${xiaoBo.engName} ${xiaoBo.name} (前九${xiaoBo.col1}-後九${xiaoBo.col2}=${xiaoBo.diff})\n`;
+            if (!isMonth12 && daBo) txt += `🌋 大波獎：${daBo.engName} ${daBo.name} (前九${daBo.col1}-後九${daBo.col2}=${daBo.diff})\n`;
+            txt += `──────────────────\n`;
+            if (!isMonth12) {
+                txt += `【下月差點調整公告】\n`;
+                active.filter(p => p.rank > 3 && p.adj < 0).forEach(p => { txt += `• ${p.name}：低標準桿加減，扣 ${Math.abs(p.adj)} 桿 ➔ 新差點 ${p.nextHdcp}\n`; });
+                if (champ) txt += `• 冠軍 ${champ.name}：${champ.adj < 0 ? `扣 ${Math.abs(champ.adj)} 桿 ➔ 新差點 ${champ.nextHdcp}` : '維持原差點'}\n`;
+                if (r2) txt += `• 亞軍 ${r2.name}：${r2.adj < 0 ? `扣 ${Math.abs(r2.adj)} 桿 ➔ 新差點 ${r2.nextHdcp}` : '維持原差點'}\n`;
+                if (r3) txt += `• 季軍 ${r3.name}：${r3.adj < 0 ? `扣 ${Math.abs(r3.adj)} 桿 ➔ 新差點 ${r3.nextHdcp}` : '維持原差點'}\n`;
+            } else {
+                txt += `【年終會長盃圓滿成功，新年度差點請至系統總表查閱】\n`;
+            }
+            txt += `恭喜各位得獎球友！詳細年度風雲榜與技術獎請上隊務系統查詢 ⛳`;
+
+            navigator.clipboard.writeText(txt).then(() => {
+                alert(`已複製【${conf.fullName}】LINE 戰報至剪貼簿！可直接貼至 LINE 球隊群組。`);
+            }).catch(() => {
+                alert(txt);
+            });
+        }
+
+        // 啟動程式
+        loadCourseNames();
+        initData();
+        renderMonthTabs();
+        renderMonthlyTable();
+    </script>
+
+</body>
+</html>
